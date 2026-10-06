@@ -1,0 +1,194 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "Perfil público do usuário no Cinebook",
+      "type": "object",
+      "properties": {
+        "displayName": {
+          "type": "string",
+          "maxLength": 60,
+          "description": "Nome visível do usuário"
+        },
+        "photoURL": {
+          "type": "string",
+          "maxLength": 1000,
+          "description": "URL do avatar do usuário"
+        },
+        "bio": {
+          "type": "string",
+          "maxLength": 300,
+          "description": "Biografia curta do usuário"
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "Data de criação da conta"
+        }
+      },
+      "required": ["displayName"]
+    },
+    "ListItem": {
+      "title": "ListItem",
+      "description": "Título salvo em uma das listas do usuário (Quero ver/ler, Em andamento, Concluído)",
+      "type": "object",
+      "properties": {
+        "itemId": {
+          "type": "string",
+          "maxLength": 100,
+          "description": "ID do filme, série ou livro"
+        },
+        "itemType": {
+          "type": "string",
+          "enum": ["movie", "series", "book"],
+          "description": "Tipo de mídia"
+        },
+        "title": {
+          "type": "string",
+          "maxLength": 200,
+          "description": "Título da obra"
+        },
+        "posterUrl": {
+          "type": "string",
+          "maxLength": 1000,
+          "description": "URL da capa do título"
+        },
+        "year": {
+          "type": "string",
+          "maxLength": 10,
+          "description": "Ano de lançamento"
+        },
+        "status": {
+          "type": "string",
+          "enum": ["want", "in_progress", "completed"],
+          "description": "Status na lista do usuário"
+        },
+        "updatedAt": {
+          "type": "string",
+          "description": "Data de atualização do status"
+        }
+      },
+      "required": ["itemId", "itemType", "title", "status"]
+    },
+    "Following": {
+      "title": "Following",
+      "description": "Relação de usuários seguidos",
+      "type": "object",
+      "properties": {
+        "targetUid": {
+          "type": "string",
+          "maxLength": 128,
+          "description": "UID do usuário seguido"
+        },
+        "followedAt": {
+          "type": "string",
+          "description": "Data em que começou a seguir"
+        }
+      },
+      "required": ["targetUid"]
+    },
+    "Post": {
+      "title": "Post",
+      "description": "Publicação/resenha no feed do Cinebook",
+      "type": "object",
+      "properties": {
+        "authorId": {
+          "type": "string",
+          "maxLength": 128,
+          "description": "UID do autor do post"
+        },
+        "authorName": {
+          "type": "string",
+          "maxLength": 60,
+          "description": "Nome do autor da resenha"
+        },
+        "authorPhoto": {
+          "type": "string",
+          "maxLength": 1000,
+          "description": "Foto do autor"
+        },
+        "itemId": {
+          "type": "string",
+          "maxLength": 100,
+          "description": "ID do item resenhado"
+        },
+        "itemType": {
+          "type": "string",
+          "enum": ["movie", "series", "book"],
+          "description": "Tipo de mídia"
+        },
+        "itemTitle": {
+          "type": "string",
+          "maxLength": 200,
+          "description": "Título da obra avaliada"
+        },
+        "itemPoster": {
+          "type": "string",
+          "maxLength": 1000,
+          "description": "URL do pôster da obra"
+        },
+        "itemYear": {
+          "type": "string",
+          "maxLength": 10,
+          "description": "Ano de lançamento da obra"
+        },
+        "rating": {
+          "type": "integer",
+          "description": "Nota de 1 a 5 estrelas"
+        },
+        "text": {
+          "type": "string",
+          "maxLength": 1000,
+          "description": "Texto da resenha até 1000 caracteres"
+        },
+        "likeCount": {
+          "type": "integer",
+          "description": "Total de curtidas recebidas"
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "Data de publicação"
+        }
+      },
+      "required": ["authorId", "authorName", "itemId", "itemType", "itemTitle", "rating", "text", "likeCount"]
+    },
+    "Like": {
+      "title": "Like",
+      "description": "Curtida dada a uma resenha",
+      "type": "object",
+      "properties": {
+        "uid": {
+          "type": "string",
+          "maxLength": 128,
+          "description": "UID de quem curtiu"
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "Data da curtida"
+        }
+      },
+      "required": ["uid"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "Perfil do usuário"
+    },
+    "/users/{userId}/lists/{itemKey}": {
+      "schema": "ListItem",
+      "description": "Listas de títulos do usuário"
+    },
+    "/users/{userId}/following/{targetUid}": {
+      "schema": "Following",
+      "description": "Pessoas que o usuário segue"
+    },
+    "/posts/{postId}": {
+      "schema": "Post",
+      "description": "Feed público de resenhas"
+    },
+    "/posts/{postId}/likes/{userId}": {
+      "schema": "Like",
+      "description": "Curtidas de uma resenha específica"
+    }
+  }
+}

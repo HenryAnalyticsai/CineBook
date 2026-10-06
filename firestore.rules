@@ -1,0 +1,99 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Default deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    // --- USERS & SUBCOLLECTIONS ---
+    match /users/{userId} {
+      allow read: if true;
+      allow create: if isOwner(userId)
+        && incoming().displayName is string
+        && incoming().displayName.size() > 0
+        && incoming().displayName.size() <= 60;
+      allow update: if isOwner(userId)
+        && incoming().displayName is string
+        && incoming().displayName.size() <= 60;
+      allow delete: if isOwner(userId);
+
+      // Subcoleção: lists
+      match /lists/{itemKey} {
+        allow read: if true;
+        allow create, update: if isOwner(userId)
+          && incoming().itemId is string
+          && incoming().itemType in ['movie', 'series', 'book']
+          && incoming().status in ['want', 'in_progress', 'completed']
+          && incoming().title is string && incoming().title.size() <= 200;
+        allow delete: if isOwner(userId);
+      }
+
+      // Subcoleção: following
+      match /following/{targetUid} {
+        allow read: if true;
+        allow create, update: if isOwner(userId) && incoming().targetUid == targetUid;
+        allow delete: if isOwner(userId);
+      }
+    }
+
+    // --- POSTS & LIKES ---
+    match /posts/{postId} {
+      allow read: if true;
+
+      function isValidPost(data) {
+        return data.authorId == request.auth.uid
+          && data.authorName is string && data.authorName.size() <= 60
+          && data.itemId is string && data.itemId.size() <= 100
+          && data.itemType in ['movie', 'series', 'book']
+          && data.itemTitle is string && data.itemTitle.size() <= 200
+          && data.rating is int && data.rating >= 1 && data.rating <= 5
+          && data.text is string && data.text.size() <= 1000
+          && data.likeCount is int;
+      }
+
+      allow create: if isSignedIn()
+        && isValidPost(incoming())
+        && incoming().likeCount == 0;
+
+      allow update: if isSignedIn() && (
+        // Autor atualizando texto ou avaliação
+        (existing().authorId == request.auth.uid
+          && isValidPost(incoming())
+          && incoming().authorId == existing().authorId
+          && incoming().likeCount == existing().likeCount
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['text', 'rating', 'updatedAt']))
+        ||
+        // Qualquer usuário autenticado atualizando likeCount (+1 ou -1)
+        (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['likeCount'])
+          && incoming().authorId == existing().authorId
+          && (incoming().likeCount == existing().likeCount + 1 || incoming().likeCount == existing().likeCount - 1))
+      );
+
+      allow delete: if isSignedIn() && existing().authorId == request.auth.uid;
+
+      // Subcoleção: likes
+      match /likes/{userId} {
+        allow read: if true;
+        allow create: if isOwner(userId) && incoming().uid == userId;
+        allow delete: if isOwner(userId);
+      }
+    }
+  }
+}

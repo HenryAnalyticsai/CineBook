@@ -1,0 +1,6 @@
+{
+  "name": "Cinebook - Rede Social de Filmes, Séries e Livros",
+  "description": "Rede social estilo Instagram para filmes, séries e livros com listas, resenhas e feed em tempo real.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
