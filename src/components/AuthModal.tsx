@@ -1,5 +1,15 @@
 import React, { useState } from 'react';
-import { X, Smartphone, ArrowRight, ShieldCheck, UserCheck, AlertCircle } from 'lucide-react';
+import {
+  X,
+  Smartphone,
+  ArrowRight,
+  ShieldCheck,
+  UserCheck,
+  AlertCircle,
+  Copy,
+  Check,
+  ExternalLink,
+} from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
 interface AuthModalProps {
@@ -22,6 +32,19 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onClose }) => {
   const [phoneNumber, setPhoneNumber] = useState('');
   const [smsCode, setSmsCode] = useState('');
   const [loading, setLoading] = useState(false);
+  const [copiedDomain, setCopiedDomain] = useState(false);
+
+  const currentHostname = typeof window !== 'undefined' ? window.location.hostname : '';
+  const firebaseProjectSettingsUrl =
+    'https://console.firebase.google.com/project/gen-lang-client-0570842664/authentication/settings';
+
+  const handleCopyHostname = () => {
+    if (navigator?.clipboard && currentHostname) {
+      navigator.clipboard.writeText(currentHostname);
+      setCopiedDomain(true);
+      setTimeout(() => setCopiedDomain(false), 3000);
+    }
+  };
 
   const handleGoogleLogin = async () => {
     setLoading(true);
@@ -95,9 +118,108 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onClose }) => {
         </p>
 
         {error && (
-          <div className="alert-box alert-error" role="alert">
-            <AlertCircle size={18} style={{ flexShrink: 0, marginTop: '2px' }} />
-            <div style={{ fontSize: '0.86rem', lineHeight: 1.4 }}>{error}</div>
+          <div
+            style={{
+              background: 'rgba(239, 68, 68, 0.08)',
+              border: '1.5px solid rgba(239, 68, 68, 0.3)',
+              borderRadius: 'var(--radius-md)',
+              padding: '14px',
+              marginBottom: '16px',
+            }}
+            role="alert"
+          >
+            <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-start' }}>
+              <AlertCircle size={20} color="#ef4444" style={{ flexShrink: 0, marginTop: '2px' }} />
+              <div>
+                <strong style={{ color: '#ef4444', fontSize: '0.9rem', display: 'block', marginBottom: '4px' }}>
+                  {error.includes('Domínio não autorizado')
+                    ? 'Domínio não autorizado no Firebase Console'
+                    : 'Aviso de Autenticação'}
+                </strong>
+                <div style={{ fontSize: '0.84rem', color: 'var(--text-secondary)', lineHeight: 1.45 }}>
+                  {error}
+                </div>
+              </div>
+            </div>
+
+            {error.includes('Domínio não autorizado') && (
+              <div
+                style={{
+                  marginTop: '12px',
+                  paddingTop: '12px',
+                  borderTop: '1px solid rgba(239, 68, 68, 0.2)',
+                  fontSize: '0.82rem',
+                }}
+              >
+                <div style={{ fontWeight: 700, color: 'var(--text-primary)', marginBottom: '6px' }}>
+                  Como liberar o login com Google (3 passos rápidos):
+                </div>
+
+                <div
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    background: 'var(--bg-surface)',
+                    border: '1px solid var(--border-color)',
+                    padding: '8px 10px',
+                    borderRadius: 'var(--radius-sm)',
+                    marginBottom: '8px',
+                    fontFamily: 'monospace',
+                    fontSize: '0.78rem',
+                    overflowX: 'auto',
+                  }}
+                >
+                  <span style={{ color: 'var(--accent-pink)', fontWeight: 700 }}>{currentHostname}</span>
+                  <button
+                    type="button"
+                    onClick={handleCopyHostname}
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '4px',
+                      padding: '4px 8px',
+                      background: copiedDomain ? 'var(--accent-emerald)' : 'var(--bg-subtle)',
+                      color: copiedDomain ? '#fff' : 'var(--text-primary)',
+                      borderRadius: 'var(--radius-sm)',
+                      fontSize: '0.72rem',
+                      fontWeight: 700,
+                      border: '1px solid var(--border-color)',
+                    }}
+                  >
+                    {copiedDomain ? <Check size={12} /> : <Copy size={12} />}
+                    <span>{copiedDomain ? 'Copiado!' : 'Copiar'}</span>
+                  </button>
+                </div>
+
+                <ol style={{ paddingLeft: '18px', color: 'var(--text-secondary)', lineHeight: 1.5, marginBottom: '10px' }}>
+                  <li>Copie o domínio acima.</li>
+                  <li>Acesse o Firebase Console em <em>Authentication &gt; Configurações &gt; Domínios autorizados</em>.</li>
+                  <li>Clique em <strong>Adicionar domínio</strong>, cole e salve!</li>
+                </ol>
+
+                <a
+                  href={firebaseProjectSettingsUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    padding: '7px 14px',
+                    background: 'var(--accent-pink)',
+                    color: '#fff',
+                    borderRadius: 'var(--radius-sm)',
+                    textDecoration: 'none',
+                    fontWeight: 700,
+                    fontSize: '0.78rem',
+                  }}
+                >
+                  <span>Abrir Configurações no Firebase Console</span>
+                  <ExternalLink size={13} />
+                </a>
+              </div>
+            )}
           </div>
         )}
 

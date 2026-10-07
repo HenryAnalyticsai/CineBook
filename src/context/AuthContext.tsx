@@ -8,6 +8,7 @@ import {
   RecaptchaVerifier,
   signInWithPhoneNumber,
   ConfirmationResult,
+  signInAnonymously,
 } from 'firebase/auth';
 import { auth } from '../firebase';
 import { UserProfile } from '../types/cinebook';
@@ -205,23 +206,33 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const loginAsDemoUser = async (name: string = 'Crítico Cinebook') => {
     try {
       setError(null);
-      // Create guest profile
-      const demoUid = 'demo_critico_' + Math.random().toString(36).substring(2, 6);
+      let realUid = '';
+
+      // Tenta autenticação anônima real do Firebase para respeitar as regras do Firestore
+      try {
+        const anonCred = await signInAnonymously(auth);
+        realUid = anonCred.user.uid;
+      } catch (anonErr) {
+        console.warn('Login anônimo indisponível no console, usando identificador de demonstração:', anonErr);
+        realUid = 'demo_critico_' + Math.random().toString(36).substring(2, 6);
+      }
+
       const demoProfile: UserProfile = {
-        uid: demoUid,
+        uid: realUid,
         displayName: name,
         photoURL: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200&h=200&fit=crop&crop=faces',
-        bio: 'Apaixonado por ficção científica, cinema clássico e literatura russa. Compartilhando impressões!',
+        bio: 'Apaixonado por cinema, séries e boa literatura no Cinebook.',
         createdAt: new Date().toISOString(),
       };
 
-      // Mock user state
-      setUser({
-        uid: demoUid,
-        displayName: name,
-        email: 'demo@cinebook.social',
-        photoURL: demoProfile.photoURL,
-      } as any);
+      if (!auth.currentUser) {
+        setUser({
+          uid: realUid,
+          displayName: name,
+          email: 'demo@cinebook.social',
+          photoURL: demoProfile.photoURL,
+        } as any);
+      }
 
       setProfile(demoProfile);
       await upsertUserProfile(demoProfile);
