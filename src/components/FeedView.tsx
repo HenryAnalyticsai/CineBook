@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { Sparkles, Users, MessageSquarePlus, Film, BookOpen } from 'lucide-react';
+import { Sparkles, Users, MessageSquarePlus, Film, BookOpen, Flame } from 'lucide-react';
 import { Post, MediaItem, MediaType, FollowingRelation } from '../types/cinebook';
 import { PostCard } from './PostCard';
 import { useAuth } from '../context/AuthContext';
 import { subscribeFeedPosts, subscribeFollowing } from '../services/firestoreService';
-import { getTrendingTmdb, POPULAR_BOOKS } from '../services/mediaService';
+import { getTrendingTmdb } from '../services/mediaService';
 
 interface FeedViewProps {
   onOpenMediaModal: (item: {
@@ -29,8 +29,9 @@ export const FeedView: React.FC<FeedViewProps> = ({
   const [activeTab, setActiveTab] = useState<'recent' | 'following'>('recent');
   const [posts, setPosts] = useState<Post[]>([]);
   const [following, setFollowing] = useState<FollowingRelation[]>([]);
-  const [stories, setStories] = useState<MediaItem[]>([]);
+  const [trendingMedia, setTrendingMedia] = useState<MediaItem[]>([]);
   const [loadingPosts, setLoadingPosts] = useState(true);
+  const [loadingTrending, setLoadingTrending] = useState(true);
 
   // Subscribe to feed posts
   useEffect(() => {
@@ -54,17 +55,20 @@ export const FeedView: React.FC<FeedViewProps> = ({
     return () => unsub();
   }, [user]);
 
-  // Load curated highlights / stories
+  // Load trending movies and series from TMDB
   useEffect(() => {
-    const loadStories = async () => {
-      const tmdbTrending = await getTrendingTmdb();
-      const mixedStories: MediaItem[] = [
-        ...POPULAR_BOOKS.slice(0, 4),
-        ...(tmdbTrending.length > 0 ? tmdbTrending.slice(0, 5) : []),
-      ];
-      setStories(mixedStories);
+    const loadTrending = async () => {
+      setLoadingTrending(true);
+      try {
+        const list = await getTrendingTmdb();
+        setTrendingMedia(list);
+      } catch (err) {
+        console.error('Erro ao buscar filmes e séries mais vistos:', err);
+      } finally {
+        setLoadingTrending(false);
+      }
     };
-    loadStories();
+    loadTrending();
   }, []);
 
   // Filter posts
@@ -76,39 +80,77 @@ export const FeedView: React.FC<FeedViewProps> = ({
 
   return (
     <div>
-      {/* Stories Carousel (Instagram Style) */}
-      <section aria-label="Destaques e Obras em Alta">
-        <div className="stories-bar">
-          {stories.map((story) => (
-            <button
-              key={`${story.type}_${story.id}`}
-              type="button"
-              className="story-item"
-              onClick={() =>
-                onOpenMediaModal({
-                  id: story.id,
-                  type: story.type,
-                  title: story.title,
-                  poster: story.poster,
-                  year: story.year,
-                })
-              }
-              title={`${story.title} (${story.type === 'book' ? 'Livro' : 'Filme/Série'})`}
-            >
-              <div className="story-ring">
-                <img
-                  src={
-                    story.poster ||
-                    'https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?w=150&h=150&fit=crop'
-                  }
-                  alt={story.title}
-                  className="story-avatar"
-                />
-              </div>
-              <span className="story-title">{story.title}</span>
-            </button>
-          ))}
+      {/* Seção Filmes e Séries Mais Vistos (TMDB) */}
+      <section className="trending-showcase" aria-label="Filmes e Séries Mais Vistos">
+        <div className="trending-header-row">
+          <div className="trending-header-title">
+            <Flame size={18} color="var(--accent-pink)" />
+            <span>Filmes e Séries Mais Vistos</span>
+          </div>
+          <span className="trending-header-pill">Em alta</span>
         </div>
+
+        {loadingTrending ? (
+          <div style={{ display: 'flex', gap: '12px', overflowX: 'auto', padding: '4px 0' }}>
+            {[1, 2, 3, 4, 5].map((n) => (
+              <div
+                key={n}
+                style={{
+                  width: '114px',
+                  aspectRatio: '2/3',
+                  borderRadius: 'var(--radius-md)',
+                  background: 'var(--bg-subtle)',
+                  flexShrink: 0,
+                }}
+              />
+            ))}
+          </div>
+        ) : trendingMedia.length > 0 ? (
+          <div className="trending-carousel">
+            {trendingMedia.map((media) => (
+              <button
+                key={`${media.type}_${media.id}`}
+                type="button"
+                className="trending-card"
+                onClick={() =>
+                  onOpenMediaModal({
+                    id: media.id,
+                    type: media.type,
+                    title: media.title,
+                    poster: media.poster,
+                    year: media.year,
+                  })
+                }
+                title={`${media.title} (${media.type === 'movie' ? 'Filme' : 'Série'})`}
+              >
+                <div className="trending-poster-box">
+                  <img
+                    src={
+                      media.poster ||
+                      'https://images.unsplash.com/photo-1489599849927-2ee91cede3ba?w=300&h=450&fit=crop'
+                    }
+                    alt={media.title}
+                    loading="lazy"
+                  />
+                  <span
+                    className={`trending-card-badge ${
+                      media.type === 'movie' ? 'badge-movie' : 'badge-series'
+                    }`}
+                  >
+                    {media.type === 'movie' ? 'Filme' : 'Série'}
+                  </span>
+                  {media.voteAverage && media.voteAverage > 0 ? (
+                    <span className="trending-card-score">
+                      ⭐ {media.voteAverage.toFixed(1)}
+                    </span>
+                  ) : null}
+                </div>
+                <span className="trending-card-title">{media.title}</span>
+                <span className="trending-card-sub">{media.year || 'Em alta'}</span>
+              </button>
+            ))}
+          </div>
+        ) : null}
       </section>
 
       {/* Feed Tabs: Recentes vs Seguindo */}
@@ -144,10 +186,11 @@ export const FeedView: React.FC<FeedViewProps> = ({
         </div>
       ) : displayedPosts.length > 0 ? (
         <div className="posts-stream">
-          {displayedPosts.map((post) => (
+          {displayedPosts.map((post, idx) => (
             <PostCard
               key={post.id}
               post={post}
+              index={idx}
               onOpenMediaModal={onOpenMediaModal}
               onViewAuthorProfile={onViewAuthorProfile}
               onOpenAuth={onOpenAuth}

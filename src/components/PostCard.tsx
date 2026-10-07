@@ -7,6 +7,7 @@ import { DeletePostModal } from './DeletePostModal';
 
 interface PostCardProps {
   post: Post;
+  index?: number;
   onOpenMediaModal: (item: {
     id: string;
     type: MediaType;
@@ -20,6 +21,7 @@ interface PostCardProps {
 
 export const PostCard: React.FC<PostCardProps> = ({
   post,
+  index,
   onOpenMediaModal,
   onViewAuthorProfile,
   onOpenAuth,
@@ -122,7 +124,10 @@ export const PostCard: React.FC<PostCardProps> = ({
   };
 
   return (
-    <article className="post-card">
+    <article
+      className="post-card"
+      style={index !== undefined ? { animationDelay: `${Math.min(index * 0.08, 0.48)}s` } : undefined}
+    >
       {/* Cabeçalho do Post estilo Instagram */}
       <div className="post-header">
         <button

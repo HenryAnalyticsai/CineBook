@@ -244,70 +244,146 @@ img {
 }
 
 /* ========================================================
-   HISTÓRIAS / DESTAQUES CAROUSEL (STORIES INSTAGRAM)
+   MAIS VISTOS (TMDB TRENDING CAROUSEL)
    ======================================================== */
 
-.stories-bar {
-  display: flex;
-  gap: 14px;
-  overflow-x: auto;
-  padding: 14px 4px;
-  margin-bottom: 16px;
-  scrollbar-width: none;
-  -ms-overflow-style: none;
+.trending-showcase {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  padding: 14px 14px 16px;
+  margin-bottom: 20px;
+  box-shadow: var(--shadow-sm);
 }
 
-.stories-bar::-webkit-scrollbar {
+.trending-header-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+  padding: 0 2px;
+}
+
+.trending-header-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.96rem;
+  font-weight: 800;
+  color: var(--text-primary);
+  letter-spacing: -0.02em;
+}
+
+.trending-header-pill {
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 3px 8px;
+  border-radius: var(--radius-full);
+  background: rgba(225, 29, 72, 0.1);
+  color: var(--accent-pink);
+}
+
+.trending-carousel {
+  display: flex;
+  gap: 12px;
+  overflow-x: auto;
+  padding: 2px 2px 8px;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  scroll-behavior: smooth;
+  -webkit-overflow-scrolling: touch;
+}
+
+.trending-carousel::-webkit-scrollbar {
   display: none;
 }
 
-.story-item {
+.trending-card {
   display: flex;
   flex-direction: column;
-  align-items: center;
-  gap: 6px;
   flex-shrink: 0;
-  cursor: pointer;
+  width: 114px;
   background: none;
   border: none;
-  text-align: center;
-  width: 76px;
+  text-align: left;
+  cursor: pointer;
+  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-.story-ring {
-  width: 66px;
-  height: 66px;
-  border-radius: var(--radius-full);
-  padding: 2.5px;
-  background: linear-gradient(45deg, #f09433, #e6683c, #dc2743, #cc2366, #bc1888);
-  box-shadow: 0 2px 6px rgba(225, 29, 72, 0.25);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: transform 0.2s ease;
+.trending-card:hover {
+  transform: translateY(-3px);
 }
 
-.story-item:hover .story-ring {
+.trending-poster-box {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 2 / 3;
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  box-shadow: var(--shadow-sm);
+  background: var(--bg-subtle);
+  margin-bottom: 6px;
+}
+
+.trending-poster-box img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.3s ease;
+}
+
+.trending-card:hover .trending-poster-box img {
   transform: scale(1.05);
 }
 
-.story-avatar {
-  width: 100%;
-  height: 100%;
+.trending-card-badge {
+  position: absolute;
+  top: 6px;
+  left: 6px;
+  padding: 2px 6px;
   border-radius: var(--radius-full);
-  object-fit: cover;
-  border: 2px solid var(--bg-surface);
-  background-color: var(--bg-subtle);
+  font-size: 0.62rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  color: #fff;
+  backdrop-filter: blur(6px);
+  z-index: 2;
 }
 
-.story-title {
-  font-size: 0.72rem;
-  font-weight: 600;
+.trending-card-score {
+  position: absolute;
+  bottom: 6px;
+  right: 6px;
+  padding: 2px 6px;
+  border-radius: var(--radius-full);
+  font-size: 0.65rem;
+  font-weight: 800;
+  color: #fff;
+  background: rgba(0, 0, 0, 0.75);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  z-index: 2;
+}
+
+.trending-card-title {
+  font-size: 0.8rem;
+  font-weight: 700;
   color: var(--text-primary);
-  width: 74px;
-  white-space: nowrap;
+  line-height: 1.25;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
   overflow: hidden;
-  text-overflow: ellipsis;
+  margin-bottom: 2px;
+}
+
+.trending-card-sub {
+  font-size: 0.7rem;
+  color: var(--text-muted);
 }
 
 /* ========================================================
@@ -346,6 +422,17 @@ img {
    CARD DE POST NO FEED (ESTILO INSTAGRAM)
    ======================================================== */
 
+@keyframes postFadeIn {
+  0% {
+    opacity: 0;
+    transform: translateY(18px) scale(0.99);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
 .post-card {
   background: var(--bg-surface);
   border: 1px solid var(--border-color);
@@ -353,7 +440,15 @@ img {
   margin-bottom: 22px;
   box-shadow: var(--shadow-sm);
   overflow: hidden;
-  transition: box-shadow 0.2s ease;
+  transition: box-shadow 0.2s ease, transform 0.2s ease;
+  animation: postFadeIn 0.45s cubic-bezier(0.16, 1, 0.3, 1) both;
+  will-change: opacity, transform;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .post-card {
+    animation: none !important;
+  }
 }
 
 .post-card:hover {

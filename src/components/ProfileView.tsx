@@ -353,10 +353,11 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
       {activeTab === 'reviews' ? (
         posts.length > 0 ? (
           <div>
-            {posts.map((post) => (
+            {posts.map((post, idx) => (
               <PostCard
                 key={post.id}
                 post={post}
+                index={idx}
                 onOpenMediaModal={onOpenMediaModal}
                 onViewAuthorProfile={onViewAuthorProfile}
                 onOpenAuth={onOpenAuth}
