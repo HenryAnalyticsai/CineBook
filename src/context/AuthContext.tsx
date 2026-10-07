@@ -5,9 +5,6 @@ import {
   signInWithPopup,
   signOut,
   onAuthStateChanged,
-  RecaptchaVerifier,
-  signInWithPhoneNumber,
-  ConfirmationResult,
   signInAnonymously,
 } from 'firebase/auth';
 import { auth } from '../firebase';
@@ -21,13 +18,9 @@ interface AuthContextType {
   error: string | null;
   clearError: () => void;
   signInWithGoogle: () => Promise<void>;
-  sendPhoneVerificationCode: (phoneDigits: string) => Promise<boolean>;
-  confirmPhoneCode: (code: string) => Promise<boolean>;
-  loginAsDemoUser: (name?: string) => Promise<void>;
+  loginWithPhone: (phoneDigits: string) => Promise<boolean>;
   updateProfileBio: (bio: string) => Promise<void>;
   logout: () => Promise<void>;
-  phoneStep: 'idle' | 'code-sent' | 'verifying';
-  resetPhoneStep: () => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -37,14 +30,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [phoneStep, setPhoneStep] = useState<'idle' | 'code-sent' | 'verifying'>('idle');
-  const [confirmationResult, setConfirmationResult] = useState<ConfirmationResult | null>(null);
 
   const clearError = () => setError(null);
-  const resetPhoneStep = () => {
-    setPhoneStep('idle');
-    setConfirmationResult(null);
-  };
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
@@ -105,139 +92,63 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  const setupRecaptcha = (): RecaptchaVerifier => {
-    // Clean up any existing verifier
-    if ((window as any).recaptchaVerifier) {
-      try {
-        (window as any).recaptchaVerifier.clear();
-      } catch (e) {
-        // ignore
-      }
-    }
-
-    const verifier = new RecaptchaVerifier(auth, 'recaptcha-container', {
-      size: 'invisible',
-      callback: () => {
-        // reCAPTCHA solved
-      },
-      'expired-callback': () => {
-        setError('O reCAPTCHA expirou. Por favor, tente enviar o SMS novamente.');
-      },
-    });
-
-    (window as any).recaptchaVerifier = verifier;
-    return verifier;
-  };
-
-  const sendPhoneVerificationCode = async (phoneDigits: string): Promise<boolean> => {
+  /**
+   * Login por telefone com confirmação direta (sem envio de SMS)
+   */
+  const loginWithPhone = async (phoneDigits: string): Promise<boolean> => {
     try {
       setError(null);
-      // Clean non-digits
       const cleanDigits = phoneDigits.replace(/\D/g, '');
       if (cleanDigits.length < 10 || cleanDigits.length > 11) {
         setError('Informe um número válido com DDD (ex: 11 98765-4321).');
         return false;
       }
 
-      // Prepend Brazil prefix +55 automatically
-      const e164Number = `+55${cleanDigits}`;
+      let authenticatedUser = auth.currentUser;
 
-      const verifier = setupRecaptcha();
-      const confirmation = await signInWithPhoneNumber(auth, e164Number, verifier);
-      setConfirmationResult(confirmation);
-      setPhoneStep('code-sent');
-      return true;
-    } catch (err: any) {
-      console.error('Erro ao enviar SMS:', err);
-      if (err.code === 'auth/operation-not-allowed') {
-        setError('O login por Telefone precisa ser habilitado no Firebase Console (Authentication > Sign-in method > Telefone).');
-      } else if (err.code === 'auth/too-many-requests') {
-        setError('Muitas tentativas de SMS. Tente novamente mais tarde ou use os números de teste do Firebase.');
-      } else if (err.code === 'auth/invalid-phone-number') {
-        setError('Número de telefone inválido. Verifique o DDD e os 9 dígitos.');
-      } else {
-        setError(err.message || 'Erro ao enviar código por SMS.');
-      }
-      return false;
-    }
-  };
-
-  const confirmPhoneCode = async (code: string): Promise<boolean> => {
-    if (!confirmationResult) {
-      setError('Sessão de verificação expirada. Solicite um novo código.');
-      return false;
-    }
-
-    try {
-      setError(null);
-      setPhoneStep('verifying');
-      const result = await confirmationResult.confirm(code);
-      const user = result.user;
-
-      // Ensure public name is masked as required: "Usuário" + 4 first characters of uid
-      const safePublicName = `Usuário${user.uid.substring(0, 4).toUpperCase()}`;
-      const defaultPhoto = `https://api.dicebear.com/7.x/bottts/svg?seed=${user.uid}&backgroundColor=b6e3f4,c0aede,ffd5dc`;
-
-      const userProfile: UserProfile = {
-        uid: user.uid,
-        displayName: safePublicName,
-        photoURL: defaultPhoto,
-        bio: 'Membro Cinebook verificado por celular.',
-        createdAt: new Date().toISOString(),
-      };
-
-      await upsertUserProfile(userProfile);
-      setProfile(userProfile);
-      resetPhoneStep();
-      return true;
-    } catch (err: any) {
-      console.error('Erro ao confirmar código SMS:', err);
-      setPhoneStep('code-sent');
-      if (err.code === 'auth/invalid-verification-code') {
-        setError('Código de 6 dígitos inválido ou incorreto.');
-      } else {
-        setError(err.message || 'Falha ao validar código.');
-      }
-      return false;
-    }
-  };
-
-  // Demo user helper for instant evaluation
-  const loginAsDemoUser = async (name: string = 'Crítico Cinebook') => {
-    try {
-      setError(null);
-      let realUid = '';
-
-      // Tenta autenticação anônima real do Firebase para respeitar as regras do Firestore
-      try {
-        const anonCred = await signInAnonymously(auth);
-        realUid = anonCred.user.uid;
-      } catch (anonErr) {
-        console.warn('Login anônimo indisponível no console, usando identificador de demonstração:', anonErr);
-        realUid = 'demo_critico_' + Math.random().toString(36).substring(2, 6);
+      if (!authenticatedUser) {
+        try {
+          const cred = await signInAnonymously(auth);
+          authenticatedUser = cred.user;
+        } catch (anonErr: any) {
+          console.warn('Autenticação anônima do Firebase não habilitada ou indisponível:', anonErr);
+        }
       }
 
-      const demoProfile: UserProfile = {
-        uid: realUid,
-        displayName: name,
-        photoURL: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200&h=200&fit=crop&crop=faces',
-        bio: 'Apaixonado por cinema, séries e boa literatura no Cinebook.',
-        createdAt: new Date().toISOString(),
-      };
+      const uid = authenticatedUser?.uid || 'user_phone_' + cleanDigits;
+      const safePublicName = `Usuário${uid.substring(0, 4).toUpperCase()}`;
+      const defaultPhoto = `https://api.dicebear.com/7.x/bottts/svg?seed=${uid}&backgroundColor=b6e3f4,c0aede,ffd5dc,ffdfbf`;
+
+      let userProfile = await getUserProfile(uid);
+      if (!userProfile) {
+        userProfile = {
+          uid,
+          displayName: safePublicName,
+          photoURL: defaultPhoto,
+          bio: 'Membro Cinebook verificado por celular.',
+          createdAt: new Date().toISOString(),
+        };
+        try {
+          await upsertUserProfile(userProfile);
+        } catch (dbErr) {
+          console.warn('Perfil inicial salvo localmente:', dbErr);
+        }
+      }
 
       if (!auth.currentUser) {
         setUser({
-          uid: realUid,
-          displayName: name,
-          email: 'demo@cinebook.social',
-          photoURL: demoProfile.photoURL,
+          uid,
+          displayName: safePublicName,
+          photoURL: defaultPhoto,
         } as any);
       }
 
-      setProfile(demoProfile);
-      await upsertUserProfile(demoProfile);
+      setProfile(userProfile);
+      return true;
     } catch (err: any) {
-      console.error('Erro ao criar usuário demo:', err);
+      console.error('Erro ao realizar login por telefone:', err);
+      setError(err.message || 'Falha ao autenticar com o número informado.');
+      return false;
     }
   };
 
@@ -255,7 +166,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     await signOut(auth);
     setUser(null);
     setProfile(null);
-    resetPhoneStep();
   };
 
   return (
@@ -267,18 +177,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         error,
         clearError,
         signInWithGoogle,
-        sendPhoneVerificationCode,
-        confirmPhoneCode,
-        loginAsDemoUser,
+        loginWithPhone,
         updateProfileBio,
         logout,
-        phoneStep,
-        resetPhoneStep,
       }}
     >
       {children}
-      {/* Invisible reCAPTCHA container for Phone Auth */}
-      <div id="recaptcha-container"></div>
     </AuthContext.Provider>
   );
 };
@@ -290,3 +194,4 @@ export const useAuth = () => {
   }
   return context;
 };
+
