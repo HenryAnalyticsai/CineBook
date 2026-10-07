@@ -3,6 +3,7 @@ import { Heart, Star, Bookmark, Trash2, Film, Tv, BookOpen } from 'lucide-react'
 import { Post, MediaType } from '../types/cinebook';
 import { useAuth } from '../context/AuthContext';
 import { subscribePostLike, togglePostLike, deletePost } from '../services/firestoreService';
+import { DeletePostModal } from './DeletePostModal';
 
 interface PostCardProps {
   post: Post;
@@ -145,7 +146,7 @@ export const PostCard: React.FC<PostCardProps> = ({
           <button
             type="button"
             className="icon-btn"
-            onClick={() => setShowConfirmDelete((prev) => !prev)}
+            onClick={() => setShowConfirmDelete(true)}
             title="Excluir publicação"
             aria-label="Excluir publicação"
             style={{ width: '34px', height: '34px', color: '#ef4444' }}
@@ -155,75 +156,18 @@ export const PostCard: React.FC<PostCardProps> = ({
         )}
       </div>
 
-      {/* Caixa de Confirmação de Exclusão (sem depender de window.confirm) */}
-      {showConfirmDelete && (
-        <div
-          style={{
-            background: 'rgba(239, 68, 68, 0.08)',
-            borderTop: '1px solid rgba(239, 68, 68, 0.25)',
-            borderBottom: '1px solid rgba(239, 68, 68, 0.25)',
-            padding: '10px 16px',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            gap: '10px',
-            animation: 'fadeIn 0.2s ease',
-          }}
-        >
-          <span style={{ fontSize: '0.84rem', fontWeight: 600, color: '#ef4444' }}>
-            Excluir esta publicação definitivamente?
-          </span>
-          <div style={{ display: 'flex', gap: '8px', flexShrink: 0 }}>
-            <button
-              type="button"
-              onClick={handleConfirmDelete}
-              disabled={isDeleting}
-              style={{
-                padding: '5px 12px',
-                background: '#ef4444',
-                color: '#fff',
-                borderRadius: 'var(--radius-sm)',
-                fontSize: '0.8rem',
-                fontWeight: 700,
-              }}
-            >
-              {isDeleting ? 'Excluindo...' : 'Sim, excluir'}
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                setShowConfirmDelete(false);
-                setDeleteError(null);
-              }}
-              disabled={isDeleting}
-              style={{
-                padding: '5px 10px',
-                background: 'var(--bg-subtle)',
-                color: 'var(--text-primary)',
-                border: '1px solid var(--border-color)',
-                borderRadius: 'var(--radius-sm)',
-                fontSize: '0.8rem',
-              }}
-            >
-              Cancelar
-            </button>
-          </div>
-        </div>
-      )}
-
-      {deleteError && (
-        <div
-          style={{
-            background: 'rgba(239, 68, 68, 0.12)',
-            color: '#ef4444',
-            padding: '8px 16px',
-            fontSize: '0.8rem',
-            fontWeight: 600,
-          }}
-        >
-          {deleteError}
-        </div>
-      )}
+      {/* Modal de Confirmação de Exclusão da Publicação */}
+      <DeletePostModal
+        isOpen={showConfirmDelete}
+        post={post}
+        onClose={() => {
+          setShowConfirmDelete(false);
+          setDeleteError(null);
+        }}
+        onConfirm={handleConfirmDelete}
+        isDeleting={isDeleting}
+        error={deleteError}
+      />
 
       {/* Pôster / Capa em destaque */}
       <div
