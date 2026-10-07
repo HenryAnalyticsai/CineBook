@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Heart, Star, Bookmark, Trash2, Film, Tv, BookOpen } from 'lucide-react';
+import { Heart, Star, Bookmark, Trash2, Film, Tv, BookOpen, AlertTriangle, Eye, EyeOff } from 'lucide-react';
 import { Post, MediaType } from '../types/cinebook';
 import { useAuth } from '../context/AuthContext';
 import { subscribePostLike, togglePostLike, deletePost } from '../services/firestoreService';
@@ -33,6 +33,7 @@ export const PostCard: React.FC<PostCardProps> = ({
   const [showConfirmDelete, setShowConfirmDelete] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [revealedSpoiler, setRevealedSpoiler] = useState(false);
 
   // Sync like count from post updates
   useEffect(() => {
@@ -242,9 +243,16 @@ export const PostCard: React.FC<PostCardProps> = ({
         </div>
 
         <div className="media-title-row">
-          <span className="media-title-highlight">
-            {post.itemTitle} {post.itemYear ? `(${post.itemYear})` : ''}
-          </span>
+          <div className="media-title-left">
+            <span className="media-title-highlight">
+              {post.itemTitle} {post.itemYear ? `(${post.itemYear})` : ''}
+            </span>
+            {post.hasSpoiler && (
+              <span className="spoiler-badge" title="Esta resenha contém revelações do enredo">
+                <AlertTriangle size={12} /> Alerta de spoiler
+              </span>
+            )}
+          </div>
           <div className="stars-rating" aria-label={`Avaliação: ${post.rating} de 5 estrelas`}>
             {[1, 2, 3, 4, 5].map((star) => (
               <Star
@@ -257,7 +265,49 @@ export const PostCard: React.FC<PostCardProps> = ({
           </div>
         </div>
 
-        <p className="review-text">{post.text}</p>
+        {/* Exibição condicional com proteção de spoiler */}
+        {post.hasSpoiler && !revealedSpoiler ? (
+          <div className="spoiler-shield-card">
+            <div className="spoiler-shield-main">
+              <div className="spoiler-shield-icon-wrap">
+                <AlertTriangle size={20} />
+              </div>
+              <div className="spoiler-shield-content">
+                <strong className="spoiler-shield-title">Aviso de Spoiler!</strong>
+                <p className="spoiler-shield-text">
+                  Esta resenha contém detalhes cruciais ou revelações da trama.
+                </p>
+              </div>
+            </div>
+            <button
+              type="button"
+              className="btn-reveal-spoiler"
+              onClick={() => setRevealedSpoiler(true)}
+              aria-label="Revelar resenha com spoilers"
+            >
+              <Eye size={15} /> Ver resenha com spoiler
+            </button>
+          </div>
+        ) : (
+          <div className={post.hasSpoiler ? 'spoiler-revealed-box' : undefined}>
+            {post.hasSpoiler && (
+              <div className="spoiler-revealed-bar">
+                <span className="spoiler-revealed-tag">
+                  <AlertTriangle size={12} /> Spoilers visíveis
+                </span>
+                <button
+                  type="button"
+                  className="btn-hide-spoiler"
+                  onClick={() => setRevealedSpoiler(false)}
+                  title="Ocultar spoilers novamente"
+                >
+                  <EyeOff size={13} /> Ocultar
+                </button>
+              </div>
+            )}
+            <p className="review-text">{post.text}</p>
+          </div>
+        )}
       </div>
     </article>
   );

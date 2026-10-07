@@ -8,6 +8,8 @@ import {
   Bookmark,
   MessageSquare,
   ArrowLeft,
+  Trophy,
+  Award,
 } from 'lucide-react';
 import { UserProfile, Post, ListItem, ListStatus, LIST_STATUS_LABELS, MediaType } from '../types/cinebook';
 import { useAuth } from '../context/AuthContext';
@@ -19,6 +21,8 @@ import {
   followUser,
   unfollowUser,
 } from '../services/firestoreService';
+import { calculateUserAchievements, getTopUnlockedBadge } from '../services/achievementService';
+import { AchievementsSection } from './AchievementsSection';
 import { PostCard } from './PostCard';
 
 interface ProfileViewProps {
@@ -45,10 +49,15 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
   const [lists, setLists] = useState<ListItem[]>([]);
   const [isFollowing, setIsFollowing] = useState(false);
   const [followingCount, setFollowingCount] = useState(0);
-  const [activeTab, setActiveTab] = useState<'reviews' | 'want' | 'in_progress' | 'completed'>('reviews');
+  const [activeTab, setActiveTab] = useState<'reviews' | 'achievements' | 'want' | 'in_progress' | 'completed'>('reviews');
   const [isEditingBio, setIsEditingBio] = useState(false);
   const [bioInput, setBioInput] = useState('');
   const [loading, setLoading] = useState(true);
+
+  // Gamificação: Conquistas calculadas em tempo real
+  const achievements = calculateUserAchievements(posts, lists, followingCount);
+  const unlockedCount = achievements.filter((a) => a.isUnlocked).length;
+  const topBadge = getTopUnlockedBadge(achievements);
 
   // Fetch target profile
   useEffect(() => {
@@ -225,10 +234,36 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
               <span className="stat-number">{lists.length}</span>
               <span className="stat-label">Salvos</span>
             </div>
+            <div
+              className="stat-box"
+              onClick={() => setActiveTab('achievements')}
+              style={{ cursor: 'pointer' }}
+              title="Ver conquistas do usuário"
+            >
+              <span className="stat-number" style={{ color: 'var(--accent-gold)' }}>
+                {unlockedCount}
+              </span>
+              <span className="stat-label">Selos</span>
+            </div>
           </div>
         </div>
 
-        <h1 className="profile-name">{profile?.displayName || 'Usuário'}</h1>
+        <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '8px', marginBottom: '4px' }}>
+          <h1 className="profile-name" style={{ margin: 0 }}>
+            {profile?.displayName || 'Usuário'}
+          </h1>
+          {topBadge && (
+            <button
+              type="button"
+              className="profile-top-badge"
+              onClick={() => setActiveTab('achievements')}
+              title={`Selo principal: ${topBadge.title} - ${topBadge.description}`}
+            >
+              <span>{topBadge.icon}</span>
+              <span>{topBadge.title}</span>
+            </button>
+          )}
+        </div>
 
         {isEditingBio ? (
           <div style={{ marginBottom: '14px' }}>
@@ -308,7 +343,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
         )}
       </section>
 
-      {/* Abas do Perfil: Resenhas e as Três Listas */}
+      {/* Abas do Perfil: Resenhas, Conquistas e as Três Listas */}
       <div className="feed-tabs" style={{ marginBottom: '16px' }}>
         <button
           type="button"
@@ -318,6 +353,16 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
         >
           <MessageSquare size={15} />
           <span>Resenhas ({posts.length})</span>
+        </button>
+
+        <button
+          type="button"
+          className={`feed-tab-btn ${activeTab === 'achievements' ? 'active' : ''}`}
+          onClick={() => setActiveTab('achievements')}
+          style={{ fontSize: '0.82rem', padding: '10px 4px' }}
+        >
+          <Trophy size={15} color={activeTab === 'achievements' ? 'var(--accent-gold)' : 'currentColor'} />
+          <span>Conquistas ({unlockedCount})</span>
         </button>
 
         <button
@@ -350,7 +395,12 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
       </div>
 
       {/* Conteúdo da Aba Ativa */}
-      {activeTab === 'reviews' ? (
+      {activeTab === 'achievements' ? (
+        <AchievementsSection
+          achievements={achievements}
+          userName={profile?.displayName || 'Usuário'}
+        />
+      ) : activeTab === 'reviews' ? (
         posts.length > 0 ? (
           <div>
             {posts.map((post, idx) => (

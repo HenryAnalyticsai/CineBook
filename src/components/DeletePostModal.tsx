@@ -112,15 +112,22 @@ export const DeletePostModal: React.FC<DeletePostModalProps> = ({
               {post.itemTitle}
             </div>
 
-            <div style={{ display: 'flex', alignItems: 'center', gap: '3px', margin: '2px 0' }}>
-              {[1, 2, 3, 4, 5].map((s) => (
-                <Star
-                  key={s}
-                  size={12}
-                  fill={s <= post.rating ? 'var(--accent-gold)' : 'none'}
-                  color={s <= post.rating ? 'var(--accent-gold)' : 'var(--text-muted)'}
-                />
-              ))}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', margin: '2px 0' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '2px' }}>
+                {[1, 2, 3, 4, 5].map((s) => (
+                  <Star
+                    key={s}
+                    size={12}
+                    fill={s <= post.rating ? 'var(--accent-gold)' : 'none'}
+                    color={s <= post.rating ? 'var(--accent-gold)' : 'var(--text-muted)'}
+                  />
+                ))}
+              </div>
+              {post.hasSpoiler && (
+                <span className="spoiler-badge-tiny">
+                  <AlertTriangle size={10} /> Spoiler
+                </span>
+              )}
             </div>
 
             <p

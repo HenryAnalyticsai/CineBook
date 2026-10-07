@@ -205,6 +205,7 @@ export function subscribeFeedPosts(
           rating: Number(data.rating),
           text: data.text || '',
           likeCount: Number(data.likeCount || 0),
+          hasSpoiler: Boolean(data.hasSpoiler),
           createdAt: data.createdAt,
         };
       });
@@ -243,6 +244,7 @@ export async function createPost(post: Omit<Post, 'id' | 'likeCount'>): Promise<
       rating: Math.round(post.rating),
       text: post.text.slice(0, 1000),
       likeCount: 0,
+      hasSpoiler: Boolean(post.hasSpoiler),
       createdAt: post.createdAt || new Date().toISOString(),
     };
     await setDoc(postRef, payload);

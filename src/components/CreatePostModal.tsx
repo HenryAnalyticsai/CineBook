@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, Star, Film, Tv, BookOpen, Search, Loader2 } from 'lucide-react';
+import { X, Star, Film, Tv, BookOpen, Search, Loader2, AlertTriangle } from 'lucide-react';
 import { MediaType, MediaItem } from '../types/cinebook';
 import { useAuth } from '../context/AuthContext';
 import { createPost } from '../services/firestoreService';
@@ -28,6 +28,7 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
   const [selectedMedia, setSelectedMedia] = useState<any>(initialMedia || null);
   const [rating, setRating] = useState<number>(5);
   const [reviewText, setReviewText] = useState('');
+  const [hasSpoiler, setHasSpoiler] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<MediaItem[]>([]);
   const [isSearching, setIsSearching] = useState(false);
@@ -96,6 +97,7 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
         itemYear: selectedMedia.year || '',
         rating,
         text: trimmed,
+        hasSpoiler,
         createdAt: new Date().toISOString(),
       });
 
@@ -320,6 +322,40 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
                 {reviewText.length}
               </span>{' '}
               / 1000 caracteres
+            </div>
+          </div>
+
+          {/* Alerta de Spoiler Toggle */}
+          <div
+            className={`spoiler-toggle-card ${hasSpoiler ? 'active' : ''}`}
+            onClick={() => setHasSpoiler(!hasSpoiler)}
+            role="checkbox"
+            aria-checked={hasSpoiler}
+            tabIndex={0}
+            onKeyDown={(e) => {
+              if (e.key === ' ' || e.key === 'Enter') {
+                e.preventDefault();
+                setHasSpoiler(!hasSpoiler);
+              }
+            }}
+          >
+            <div className="spoiler-toggle-left">
+              <div className={`spoiler-icon-badge ${hasSpoiler ? 'active' : ''}`}>
+                <AlertTriangle size={18} />
+              </div>
+              <div className="spoiler-toggle-texts">
+                <div className="spoiler-toggle-title">
+                  Alerta de Spoiler
+                  {hasSpoiler && <span className="spoiler-tag-inline">Ativado</span>}
+                </div>
+                <div className="spoiler-toggle-desc">
+                  Oculta a resenha no feed com aviso para quem ainda não assistiu ou leu
+                </div>
+              </div>
+            </div>
+
+            <div className={`switch-pill ${hasSpoiler ? 'checked' : ''}`} aria-hidden="true">
+              <span className="switch-knob" />
             </div>
           </div>
 

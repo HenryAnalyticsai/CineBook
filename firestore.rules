@@ -65,7 +65,8 @@ service cloud.firestore {
           && data.itemTitle is string && data.itemTitle.size() <= 200
           && data.rating is int && data.rating >= 1 && data.rating <= 5
           && data.text is string && data.text.size() <= 1000
-          && data.likeCount is int;
+          && data.likeCount is int
+          && (!('hasSpoiler' in data) || data.hasSpoiler is bool);
       }
 
       allow create: if isSignedIn()
@@ -73,12 +74,12 @@ service cloud.firestore {
         && incoming().likeCount == 0;
 
       allow update: if isSignedIn() && (
-        // Autor atualizando texto ou avaliação
+        // Autor atualizando texto, avaliação ou flag de spoiler
         (existing().authorId == request.auth.uid
           && isValidPost(incoming())
           && incoming().authorId == existing().authorId
           && incoming().likeCount == existing().likeCount
-          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['text', 'rating', 'updatedAt']))
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['text', 'rating', 'hasSpoiler', 'updatedAt']))
         ||
         // Qualquer usuário autenticado atualizando likeCount (+1 ou -1)
         (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['likeCount'])

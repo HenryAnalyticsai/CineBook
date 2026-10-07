@@ -27,6 +27,7 @@ export interface Post {
   rating: number; // 1 to 5
   text: string;
   likeCount: number;
+  hasSpoiler?: boolean;
   createdAt: string;
   isLikedByMe?: boolean;
 }
@@ -86,3 +87,21 @@ export const LIST_STATUS_LABELS: Record<ListStatus, { label: string; verbMedia: 
     },
   },
 };
+
+export type AchievementTier = 'bronze' | 'silver' | 'gold' | 'platinum';
+
+export type AchievementCategory = 'reviews' | 'books' | 'movies' | 'series' | 'lists' | 'community';
+
+export interface Achievement {
+  id: string;
+  title: string;
+  description: string;
+  category: AchievementCategory;
+  icon: string;
+  tier: AchievementTier;
+  targetCount: number;
+  currentCount: number;
+  isUnlocked: boolean;
+  progressPercent: number;
+  requirementHint: string;
+}

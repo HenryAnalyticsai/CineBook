@@ -144,6 +144,10 @@
           "type": "integer",
           "description": "Total de curtidas recebidas"
         },
+        "hasSpoiler": {
+          "type": "boolean",
+          "description": "Indica se o texto contém revelações do enredo / spoilers"
+        },
         "createdAt": {
           "type": "string",
           "description": "Data de publicação"
