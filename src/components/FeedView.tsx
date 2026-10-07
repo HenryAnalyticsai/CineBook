@@ -1,10 +1,21 @@
-import React, { useState, useEffect } from 'react';
-import { Sparkles, Users, MessageSquarePlus, Film, BookOpen, Flame } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import {
+  Sparkles,
+  Users,
+  MessageSquarePlus,
+  Film,
+  BookOpen,
+  Flame,
+  ChevronLeft,
+  ChevronRight,
+  RefreshCw,
+  Tv,
+} from 'lucide-react';
 import { Post, MediaItem, MediaType, FollowingRelation } from '../types/cinebook';
 import { PostCard } from './PostCard';
 import { useAuth } from '../context/AuthContext';
 import { subscribeFeedPosts, subscribeFollowing } from '../services/firestoreService';
-import { getTrendingTmdb } from '../services/mediaService';
+import { getTrendingTmdb, POPULAR_TRENDING_FALLBACK } from '../services/mediaService';
 
 interface FeedViewProps {
   onOpenMediaModal: (item: {
@@ -30,8 +41,10 @@ export const FeedView: React.FC<FeedViewProps> = ({
   const [posts, setPosts] = useState<Post[]>([]);
   const [following, setFollowing] = useState<FollowingRelation[]>([]);
   const [trendingMedia, setTrendingMedia] = useState<MediaItem[]>([]);
+  const [trendingFilter, setTrendingFilter] = useState<'all' | 'movie' | 'series'>('all');
   const [loadingPosts, setLoadingPosts] = useState(true);
   const [loadingTrending, setLoadingTrending] = useState(true);
+  const carouselRef = useRef<HTMLDivElement>(null);
 
   // Subscribe to feed posts
   useEffect(() => {
@@ -56,20 +69,34 @@ export const FeedView: React.FC<FeedViewProps> = ({
   }, [user]);
 
   // Load trending movies and series from TMDB
+  const loadTrending = async () => {
+    setLoadingTrending(true);
+    try {
+      const list = await getTrendingTmdb();
+      setTrendingMedia(list && list.length > 0 ? list : POPULAR_TRENDING_FALLBACK);
+    } catch (err) {
+      console.error('Erro ao buscar filmes e séries mais vistos:', err);
+      setTrendingMedia(POPULAR_TRENDING_FALLBACK);
+    } finally {
+      setLoadingTrending(false);
+    }
+  };
+
   useEffect(() => {
-    const loadTrending = async () => {
-      setLoadingTrending(true);
-      try {
-        const list = await getTrendingTmdb();
-        setTrendingMedia(list);
-      } catch (err) {
-        console.error('Erro ao buscar filmes e séries mais vistos:', err);
-      } finally {
-        setLoadingTrending(false);
-      }
-    };
     loadTrending();
   }, []);
+
+  const handleScrollCarousel = (direction: 'left' | 'right') => {
+    if (!carouselRef.current) return;
+    const amount = direction === 'left' ? -280 : 280;
+    carouselRef.current.scrollBy({ left: amount, behavior: 'smooth' });
+  };
+
+  // Filter trending items
+  const filteredTrending =
+    trendingFilter === 'all'
+      ? trendingMedia
+      : trendingMedia.filter((m) => m.type === trendingFilter);
 
   // Filter posts
   const followingUids = new Set(following.map((f) => f.targetUid));
@@ -84,30 +111,80 @@ export const FeedView: React.FC<FeedViewProps> = ({
       <section className="trending-showcase" aria-label="Filmes e Séries Mais Vistos">
         <div className="trending-header-row">
           <div className="trending-header-title">
-            <Flame size={18} color="var(--accent-pink)" />
+            <Flame size={19} color="var(--accent-pink)" />
             <span>Filmes e Séries Mais Vistos</span>
+            <span className="trending-header-pill">Em alta</span>
           </div>
-          <span className="trending-header-pill">Em alta</span>
+
+          <div className="trending-header-actions">
+            {/* Filtros: Todos / Filmes / Séries */}
+            <div className="trending-filter-tabs">
+              <button
+                type="button"
+                className={`trending-filter-btn ${trendingFilter === 'all' ? 'active' : ''}`}
+                onClick={() => setTrendingFilter('all')}
+              >
+                Todos
+              </button>
+              <button
+                type="button"
+                className={`trending-filter-btn ${trendingFilter === 'movie' ? 'active' : ''}`}
+                onClick={() => setTrendingFilter('movie')}
+              >
+                Filmes
+              </button>
+              <button
+                type="button"
+                className={`trending-filter-btn ${trendingFilter === 'series' ? 'active' : ''}`}
+                onClick={() => setTrendingFilter('series')}
+              >
+                Séries
+              </button>
+            </div>
+
+            {/* Setas de rolagem para desktop/tablet */}
+            <div className="trending-nav-arrows">
+              <button
+                type="button"
+                className="trending-arrow-btn"
+                onClick={() => handleScrollCarousel('left')}
+                title="Rolar para esquerda"
+                aria-label="Rolar para esquerda"
+              >
+                <ChevronLeft size={16} />
+              </button>
+              <button
+                type="button"
+                className="trending-arrow-btn"
+                onClick={() => handleScrollCarousel('right')}
+                title="Rolar para direita"
+                aria-label="Rolar para direita"
+              >
+                <ChevronRight size={16} />
+              </button>
+            </div>
+          </div>
         </div>
 
         {loadingTrending ? (
           <div style={{ display: 'flex', gap: '12px', overflowX: 'auto', padding: '4px 0' }}>
-            {[1, 2, 3, 4, 5].map((n) => (
+            {[1, 2, 3, 4, 5, 6].map((n) => (
               <div
                 key={n}
                 style={{
-                  width: '114px',
+                  width: '120px',
                   aspectRatio: '2/3',
                   borderRadius: 'var(--radius-md)',
                   background: 'var(--bg-subtle)',
                   flexShrink: 0,
+                  animation: 'pulse 1.5s infinite ease-in-out',
                 }}
               />
             ))}
           </div>
-        ) : trendingMedia.length > 0 ? (
-          <div className="trending-carousel">
-            {trendingMedia.map((media) => (
+        ) : filteredTrending.length > 0 ? (
+          <div className="trending-carousel" ref={carouselRef}>
+            {filteredTrending.map((media) => (
               <button
                 key={`${media.type}_${media.id}`}
                 type="button"
@@ -131,6 +208,15 @@ export const FeedView: React.FC<FeedViewProps> = ({
                     }
                     alt={media.title}
                     loading="lazy"
+                    onError={(e) => {
+                      // Fallback imediato se o poster falhar
+                      const target = e.currentTarget;
+                      if (!target.dataset.errored) {
+                        target.dataset.errored = 'true';
+                        target.src =
+                          'https://images.unsplash.com/photo-1489599849927-2ee91cede3ba?w=300&h=450&fit=crop';
+                      }
+                    }}
                   />
                   <span
                     className={`trending-card-badge ${
@@ -150,7 +236,36 @@ export const FeedView: React.FC<FeedViewProps> = ({
               </button>
             ))}
           </div>
-        ) : null}
+        ) : (
+          <div
+            style={{
+              padding: '24px 16px',
+              textAlign: 'center',
+              background: 'var(--bg-subtle)',
+              borderRadius: 'var(--radius-md)',
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              gap: '10px',
+            }}
+          >
+            <p style={{ color: 'var(--text-secondary)', fontSize: '0.88rem' }}>
+              Nenhum item encontrado nesta categoria.
+            </p>
+            <button
+              type="button"
+              className="btn-secondary"
+              onClick={() => {
+                setTrendingFilter('all');
+                loadTrending();
+              }}
+              style={{ fontSize: '0.82rem', padding: '6px 14px' }}
+            >
+              <RefreshCw size={14} style={{ marginRight: '6px' }} />
+              Recarregar catálogo
+            </button>
+          </div>
+        )}
       </section>
 
       {/* Feed Tabs: Recentes vs Seguindo */}

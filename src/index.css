@@ -262,11 +262,14 @@ img {
   justify-content: space-between;
   margin-bottom: 12px;
   padding: 0 2px;
+  flex-wrap: wrap;
+  gap: 10px;
 }
 
 .trending-header-title {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 8px;
   font-size: 0.96rem;
   font-weight: 800;
@@ -275,14 +278,80 @@ img {
 }
 
 .trending-header-pill {
-  font-size: 0.72rem;
-  font-weight: 700;
+  font-size: 0.7rem;
+  font-weight: 800;
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  padding: 3px 8px;
+  padding: 2px 8px;
   border-radius: var(--radius-full);
-  background: rgba(225, 29, 72, 0.1);
+  background: rgba(225, 29, 72, 0.12);
   color: var(--accent-pink);
+  border: 1px solid rgba(225, 29, 72, 0.25);
+}
+
+.trending-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.trending-filter-tabs {
+  display: flex;
+  align-items: center;
+  background: var(--bg-subtle);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-full);
+  padding: 2px;
+  gap: 2px;
+}
+
+.trending-filter-btn {
+  background: none;
+  border: none;
+  padding: 4px 10px;
+  border-radius: var(--radius-full);
+  font-size: 0.74rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.trending-filter-btn:hover {
+  color: var(--text-primary);
+}
+
+.trending-filter-btn.active {
+  background: var(--bg-surface);
+  color: var(--accent-pink);
+  font-weight: 800;
+  box-shadow: var(--shadow-sm);
+}
+
+.trending-nav-arrows {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.trending-arrow-btn {
+  width: 28px;
+  height: 28px;
+  border-radius: var(--radius-full);
+  background: var(--bg-surface);
+  border: 1px solid var(--border-color);
+  color: var(--text-secondary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.trending-arrow-btn:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+  border-color: var(--border-hover);
 }
 
 .trending-carousel {
@@ -304,7 +373,7 @@ img {
   display: flex;
   flex-direction: column;
   flex-shrink: 0;
-  width: 114px;
+  width: 120px;
   background: none;
   border: none;
   text-align: left;
@@ -342,14 +411,24 @@ img {
   position: absolute;
   top: 6px;
   left: 6px;
-  padding: 2px 6px;
+  padding: 2px 7px;
   border-radius: var(--radius-full);
   font-size: 0.62rem;
   font-weight: 800;
   text-transform: uppercase;
   color: #fff;
+  letter-spacing: 0.03em;
   backdrop-filter: blur(6px);
   z-index: 2;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25);
+}
+
+.trending-card-badge.badge-movie {
+  background: linear-gradient(135deg, #e11d48, #f43f5e);
+}
+
+.trending-card-badge.badge-series {
+  background: linear-gradient(135deg, #2563eb, #3b82f6);
 }
 
 .trending-card-score {

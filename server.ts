@@ -242,7 +242,15 @@ app.get('/api/tmdb/trending', async (req: Request, res: Response) => {
       url += `&api_key=${apiKey}`;
     }
 
-    const response = await fetch(url, { headers: getTmdbHeaders() });
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 5000);
+
+    const response = await fetch(url, {
+      headers: getTmdbHeaders(),
+      signal: controller.signal,
+    });
+    clearTimeout(timeoutId);
+
     if (!response.ok) {
       return res.json({ results: SAMPLE_MEDIA, isFallback: true });
     }
@@ -261,9 +269,10 @@ app.get('/api/tmdb/trending', async (req: Request, res: Response) => {
         voteAverage: item.vote_average || 0,
       }));
 
-    return res.json({ results: formatted });
+    const finalResults = formatted.length > 0 ? formatted : SAMPLE_MEDIA;
+    return res.json({ results: finalResults });
   } catch (error) {
-    console.error('Erro no trending TMDB:', error);
+    console.error('Erro no trending TMDB, usando catálogo popular:', error);
     return res.json({ results: SAMPLE_MEDIA, isFallback: true });
   }
 });
