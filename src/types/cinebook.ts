@@ -1,3 +1,10 @@
+export const ADMIN_EMAIL = 'henryanalyticsai@gmail.com';
+
+export function isAdminEmail(email?: string | null): boolean {
+  if (!email) return false;
+  return email.trim().toLowerCase() === ADMIN_EMAIL.toLowerCase();
+}
+
 export type MediaType = 'movie' | 'series' | 'book';
 
 export type ListStatus = 'want' | 'in_progress' | 'completed';
@@ -19,6 +26,8 @@ export interface Post {
   authorId: string;
   authorName: string;
   authorPhoto: string;
+  authorEmail?: string;
+  isAdmin?: boolean;
   itemId: string;
   itemType: MediaType;
   itemTitle: string;
@@ -48,9 +57,13 @@ export interface UserProfile {
   displayName: string;
   photoURL: string;
   bio?: string;
+  email?: string;
+  role?: 'admin' | 'user';
+  isAdmin?: boolean;
   createdAt?: string;
   postCount?: number;
   followingCount?: number;
+  followersCount?: number;
   savedCount?: number;
 }
 
@@ -58,6 +71,13 @@ export interface FollowingRelation {
   targetUid: string;
   targetName?: string;
   targetPhoto?: string;
+  followedAt: string;
+}
+
+export interface FollowerRelation {
+  followerUid: string;
+  followerName?: string;
+  followerPhoto?: string;
   followedAt: string;
 }
 

@@ -10,11 +10,26 @@ import {
   ChevronRight,
   RefreshCw,
   Tv,
+  ShieldCheck,
+  UserCheck,
 } from 'lucide-react';
-import { Post, MediaItem, MediaType, FollowingRelation } from '../types/cinebook';
+import {
+  Post,
+  MediaItem,
+  MediaType,
+  FollowingRelation,
+  FollowerRelation,
+  ADMIN_EMAIL,
+  isAdminEmail,
+} from '../types/cinebook';
 import { PostCard } from './PostCard';
 import { useAuth } from '../context/AuthContext';
-import { subscribeFeedPosts, subscribeFollowing } from '../services/firestoreService';
+import {
+  subscribeFeedPosts,
+  subscribeFollowing,
+  subscribeFollowers,
+  getAdminInfo,
+} from '../services/firestoreService';
 import { getTrendingTmdb, POPULAR_TRENDING_FALLBACK } from '../services/mediaService';
 
 interface FeedViewProps {
@@ -36,15 +51,31 @@ export const FeedView: React.FC<FeedViewProps> = ({
   onOpenCreateModal,
   onOpenAuth,
 }) => {
-  const { user } = useAuth();
-  const [activeTab, setActiveTab] = useState<'recent' | 'following'>('recent');
+  const { user, profile, isAdmin } = useAuth();
+  const [activeTab, setActiveTab] = useState<'recent' | 'network'>('recent');
+  const [networkFilter, setNetworkFilter] = useState<'all' | 'followers' | 'following' | 'admin'>('all');
   const [posts, setPosts] = useState<Post[]>([]);
   const [following, setFollowing] = useState<FollowingRelation[]>([]);
+  const [followers, setFollowers] = useState<FollowerRelation[]>([]);
+  const [adminInfo, setAdminInfo] = useState<{ adminUid: string; email: string; displayName?: string } | null>(null);
   const [trendingMedia, setTrendingMedia] = useState<MediaItem[]>([]);
   const [trendingFilter, setTrendingFilter] = useState<'all' | 'movie' | 'series'>('all');
   const [loadingPosts, setLoadingPosts] = useState(true);
   const [loadingTrending, setLoadingTrending] = useState(true);
   const carouselRef = useRef<HTMLDivElement>(null);
+
+  const isCurrentUserAdmin = Boolean(
+    isAdmin ||
+    isAdminEmail(user?.email) ||
+    isAdminEmail(profile?.email)
+  );
+
+  // Load admin info
+  useEffect(() => {
+    getAdminInfo().then((info) => {
+      if (info) setAdminInfo(info);
+    });
+  }, []);
 
   // Subscribe to feed posts
   useEffect(() => {
@@ -64,6 +95,18 @@ export const FeedView: React.FC<FeedViewProps> = ({
     }
     const unsub = subscribeFollowing(user.uid, (list) => {
       setFollowing(list);
+    });
+    return () => unsub();
+  }, [user]);
+
+  // Subscribe to followers if user is authenticated
+  useEffect(() => {
+    if (!user) {
+      setFollowers([]);
+      return;
+    }
+    const unsub = subscribeFollowers(user.uid, (list) => {
+      setFollowers(list);
     });
     return () => unsub();
   }, [user]);
@@ -98,12 +141,73 @@ export const FeedView: React.FC<FeedViewProps> = ({
       ? trendingMedia
       : trendingMedia.filter((m) => m.type === trendingFilter);
 
-  // Filter posts
+  // Identificação dos seguidores e pessoas seguidas
   const followingUids = new Set(following.map((f) => f.targetUid));
-  const displayedPosts =
-    activeTab === 'recent'
-      ? posts
-      : posts.filter((p) => p.authorId === user?.uid || followingUids.has(p.authorId));
+  const followerUids = new Set(followers.map((f) => f.followerUid));
+
+  // O ADM (henryanalyticsai@gmail.com) é sempre seguido por todos os usuários
+  if (adminInfo?.adminUid && user?.uid !== adminInfo.adminUid) {
+    followingUids.add(adminInfo.adminUid);
+  }
+
+  // Determina a relação com o autor do post
+  const getPostRelation = (
+    post: Post
+  ): 'admin' | 'following' | 'follower' | 'mutual' | 'self' | 'none' => {
+    if (user && post.authorId === user.uid) return 'self';
+
+    const isPostAdm = Boolean(
+      post.isAdmin ||
+      post.authorEmail?.toLowerCase() === ADMIN_EMAIL.toLowerCase() ||
+      (adminInfo && post.authorId === adminInfo.adminUid)
+    );
+    if (isPostAdm) return 'admin';
+
+    if (!user) return 'none';
+
+    const isFollowedByMe = followingUids.has(post.authorId);
+    // Para o Administrador Henry, todos os usuários da comunidade são seus seguidores (pois todos o seguem)
+    const isFollowingMe = isCurrentUserAdmin || followerUids.has(post.authorId);
+
+    if (isFollowedByMe && isFollowingMe) return 'mutual';
+    if (isFollowingMe) return 'follower';
+    if (isFollowedByMe) return 'following';
+    return 'none';
+  };
+
+  // Filtro de exibição dos posts no feed
+  const displayedPosts = posts.filter((post) => {
+    const relation = getPostRelation(post);
+    const isAuthorSelf = Boolean(user && post.authorId === user.uid);
+
+    if (activeTab === 'network') {
+      // Aba "Seguidores & Seguindo": apenas postagens da rede do usuário
+      if (isAuthorSelf) return true;
+      if (networkFilter === 'followers') return relation === 'follower' || relation === 'mutual';
+      if (networkFilter === 'following') return relation === 'following' || relation === 'mutual';
+      if (networkFilter === 'admin') return relation === 'admin';
+      // 'all' na aba de rede: seguidores, seguidos, conexões mútuas ou ADM
+      return (
+        relation === 'follower' ||
+        relation === 'following' ||
+        relation === 'mutual' ||
+        relation === 'admin'
+      );
+    }
+
+    // Aba "Para Você" (Geral): aplica sub-filtro se ativado
+    if (networkFilter === 'followers') {
+      return relation === 'follower' || relation === 'mutual';
+    }
+    if (networkFilter === 'following') {
+      return relation === 'following' || relation === 'mutual';
+    }
+    if (networkFilter === 'admin') {
+      return relation === 'admin';
+    }
+
+    return true;
+  });
 
   return (
     <div>
@@ -268,7 +372,7 @@ export const FeedView: React.FC<FeedViewProps> = ({
         )}
       </section>
 
-      {/* Feed Tabs: Recentes vs Seguindo */}
+      {/* Feed Tabs: Para Você (Geral) vs Seguidores & Seguindo */}
       <div className="feed-tabs">
         <button
           type="button"
@@ -276,23 +380,98 @@ export const FeedView: React.FC<FeedViewProps> = ({
           onClick={() => setActiveTab('recent')}
         >
           <Sparkles size={16} />
-          <span>Recentes</span>
+          <span>Para Você</span>
         </button>
         <button
           type="button"
-          className={`feed-tab-btn ${activeTab === 'following' ? 'active' : ''}`}
+          className={`feed-tab-btn ${activeTab === 'network' ? 'active' : ''}`}
           onClick={() => {
             if (!user) {
               onOpenAuth();
             } else {
-              setActiveTab('following');
+              setActiveTab('network');
             }
           }}
         >
           <Users size={16} />
-          <span>Seguindo</span>
+          <span>Seguidores & Seguindo</span>
+          {user && (followerUids.size > 0 || followingUids.size > 0) && (
+            <span
+              style={{
+                fontSize: '0.68rem',
+                padding: '2px 6px',
+                borderRadius: 'var(--radius-full)',
+                background: 'rgba(225, 29, 72, 0.12)',
+                color: 'var(--accent-pink)',
+                fontWeight: 800,
+              }}
+            >
+              {isCurrentUserAdmin ? 'ADM' : `${followerUids.size} seg.`}
+            </span>
+          )}
         </button>
       </div>
+
+      {/* Sub-Filtros de Rede Social: Meus Seguidores, Quem Eu Sigo e ADM */}
+      {user && (
+        <div className="network-filters-bar">
+          <div className="network-filters-scroll">
+            <button
+              type="button"
+              className={`network-filter-chip ${networkFilter === 'all' ? 'active' : ''}`}
+              onClick={() => setNetworkFilter('all')}
+            >
+              <span>Todas as resenhas</span>
+            </button>
+
+            <button
+              type="button"
+              className={`network-filter-chip ${networkFilter === 'followers' ? 'active' : ''}`}
+              onClick={() => setNetworkFilter('followers')}
+            >
+              <Users size={13} />
+              <span>Meus Seguidores</span>
+              {isCurrentUserAdmin ? (
+                <span className="chip-badge">Todos</span>
+              ) : followerUids.size > 0 ? (
+                <span className="chip-badge">{followerUids.size}</span>
+              ) : null}
+            </button>
+
+            <button
+              type="button"
+              className={`network-filter-chip ${networkFilter === 'following' ? 'active' : ''}`}
+              onClick={() => setNetworkFilter('following')}
+            >
+              <span>⭐ Quem Eu Sigo</span>
+              {followingUids.size > 0 && <span className="chip-badge">{followingUids.size}</span>}
+            </button>
+
+            <button
+              type="button"
+              className={`network-filter-chip adm-chip ${networkFilter === 'admin' ? 'active' : ''}`}
+              onClick={() => setNetworkFilter('admin')}
+              title="Ver publicações oficiais do Administrador"
+            >
+              <ShieldCheck size={14} color="#f59e0b" />
+              <span>Postagens do ADM</span>
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Destaque Informativo do ADM Oficial */}
+      {networkFilter === 'admin' && (
+        <div className="admin-feed-notice">
+          <ShieldCheck size={20} color="#f59e0b" style={{ flexShrink: 0 }} />
+          <div>
+            <strong>Perfil Oficial do Administrador (ADM)</strong>
+            <p>
+              O criador e ADM <code>{ADMIN_EMAIL}</code> é seguido automaticamente por todos os membros do Cinebook para avisos, novidades e recomendações especiais.
+            </p>
+          </div>
+        </div>
+      )}
 
       {/* Lista de Resenhas */}
       {loadingPosts ? (
@@ -306,6 +485,7 @@ export const FeedView: React.FC<FeedViewProps> = ({
               key={post.id}
               post={post}
               index={idx}
+              relationType={getPostRelation(post)}
               onOpenMediaModal={onOpenMediaModal}
               onViewAuthorProfile={onViewAuthorProfile}
               onOpenAuth={onOpenAuth}
@@ -340,12 +520,35 @@ export const FeedView: React.FC<FeedViewProps> = ({
           </div>
 
           <h3 style={{ fontSize: '1.2rem', fontWeight: 800, marginBottom: '8px' }}>
-            {activeTab === 'following' ? 'Nenhuma resenha de quem você segue ainda' : 'Seja o primeiro a publicar!'}
+            {networkFilter === 'followers'
+              ? 'Nenhuma resenha dos seus seguidores no momento'
+              : networkFilter === 'following'
+              ? 'Nenhuma resenha de quem você segue ainda'
+              : networkFilter === 'admin'
+              ? 'O Administrador ainda não fez publicações recentes'
+              : activeTab === 'network'
+              ? 'Sua rede ainda não tem publicações'
+              : 'Seja o primeiro a publicar!'}
           </h3>
 
-          <p style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', marginBottom: '20px', maxWidth: '400px', margin: '0 auto 20px' }}>
-            {activeTab === 'following'
-              ? 'Siga pessoas no feed ou explore a aba Recentes para descobrir novas impressões e autores.'
+          <p
+            style={{
+              fontSize: '0.9rem',
+              color: 'var(--text-secondary)',
+              marginBottom: '20px',
+              maxWidth: '420px',
+              margin: '0 auto 20px',
+              lineHeight: 1.45,
+            }}
+          >
+            {networkFilter === 'followers'
+              ? isCurrentUserAdmin
+                ? 'Como ADM, todas as resenhas criadas pelos membros que te seguem serão listadas aqui.'
+                : 'Quando outros membros do Cinebook começarem a te seguir, suas resenhas aparecerão aqui automaticamente.'
+              : networkFilter === 'admin'
+              ? `O ADM (${ADMIN_EMAIL}) publica recomendações e anúncios da comunidade aqui.`
+              : activeTab === 'network'
+              ? 'Siga pessoas no feed ou explore a aba Para Você para descobrir novas opiniões culturais.'
               : 'Avalie seu filme, série ou livro favorito, atribua de 1 a 5 estrelas e compartilhe com a comunidade.'}
           </p>
 

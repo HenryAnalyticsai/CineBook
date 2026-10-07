@@ -7,9 +7,10 @@ import {
   Users,
   UserPlus,
   UserCheck,
+  ShieldCheck,
   Loader2,
 } from 'lucide-react';
-import { MediaItem, MediaType, UserProfile, FollowingRelation } from '../types/cinebook';
+import { MediaItem, MediaType, UserProfile, FollowingRelation, ADMIN_EMAIL, isAdminEmail } from '../types/cinebook';
 import { searchAllMedia, POPULAR_BOOKS, getTrendingTmdb } from '../services/mediaService';
 import {
   searchUsers,
@@ -123,8 +124,9 @@ export const SearchView: React.FC<SearchViewProps> = ({
     handleSearch(query, filter);
   };
 
-  const isUserFollowed = (targetUid: string) => {
-    return following.some((f) => f.targetUid === targetUid);
+  const isUserFollowed = (target: UserProfile) => {
+    if (target.isAdmin || isAdminEmail(target.email)) return true;
+    return following.some((f) => f.targetUid === target.uid);
   };
 
   const handleToggleFollow = async (e: React.MouseEvent, target: UserProfile) => {
@@ -133,9 +135,12 @@ export const SearchView: React.FC<SearchViewProps> = ({
       onOpenAuth();
       return;
     }
+    if (target.isAdmin || isAdminEmail(target.email)) {
+      return; // O Administrador é seguido automaticamente por todos
+    }
 
     try {
-      if (isUserFollowed(target.uid)) {
+      if (isUserFollowed(target)) {
         await unfollowUser(user.uid, target.uid);
       } else {
         await followUser(user.uid, target.uid, target.displayName, target.photoURL);
@@ -262,8 +267,9 @@ export const SearchView: React.FC<SearchViewProps> = ({
           ) : userResults.length > 0 ? (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
               {userResults.map((u) => {
-                const followingThis = isUserFollowed(u.uid);
+                const followingThis = isUserFollowed(u);
                 const isMe = user?.uid === u.uid;
+                const isAdm = Boolean(u.isAdmin || isAdminEmail(u.email));
 
                 return (
                   <div
@@ -294,8 +300,13 @@ export const SearchView: React.FC<SearchViewProps> = ({
                         }}
                       />
                       <div>
-                        <div style={{ fontWeight: 700, fontSize: '0.94rem', color: 'var(--text-primary)' }}>
-                          {u.displayName}
+                        <div style={{ fontWeight: 700, fontSize: '0.94rem', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          <span>{u.displayName}</span>
+                          {isAdm && (
+                            <span className="author-badge-adm" title="Administrador Oficial do Cinebook">
+                              <ShieldCheck size={11} /> ADM
+                            </span>
+                          )}
                         </div>
                         <div
                           style={{
@@ -324,12 +335,26 @@ export const SearchView: React.FC<SearchViewProps> = ({
                           borderRadius: 'var(--radius-full)',
                           fontSize: '0.82rem',
                           fontWeight: 700,
-                          background: followingThis ? 'var(--bg-subtle)' : 'var(--accent-gradient)',
-                          color: followingThis ? 'var(--text-primary)' : '#fff',
-                          border: followingThis ? '1px solid var(--border-color)' : 'none',
+                          background: isAdm
+                            ? 'rgba(245, 158, 11, 0.08)'
+                            : followingThis
+                            ? 'var(--bg-subtle)'
+                            : 'var(--accent-gradient)',
+                          color: isAdm ? '#d97706' : followingThis ? 'var(--text-primary)' : '#fff',
+                          border: isAdm
+                            ? '1px solid #f59e0b'
+                            : followingThis
+                            ? '1px solid var(--border-color)'
+                            : 'none',
+                          cursor: isAdm ? 'default' : 'pointer',
                         }}
                       >
-                        {followingThis ? (
+                        {isAdm ? (
+                          <>
+                            <ShieldCheck size={14} color="#d97706" />
+                            <span>Seguindo (ADM)</span>
+                          </>
+                        ) : followingThis ? (
                           <>
                             <UserCheck size={14} />
                             <span>Seguindo</span>

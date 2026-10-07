@@ -15,7 +15,86 @@ import {
   Unsubscribe,
 } from 'firebase/firestore';
 import { db, handleFirestoreError, OperationType } from '../firebase';
-import { Post, ListItem, UserProfile, FollowingRelation } from '../types/cinebook';
+import {
+  Post,
+  ListItem,
+  UserProfile,
+  FollowingRelation,
+  FollowerRelation,
+  ADMIN_EMAIL,
+} from '../types/cinebook';
+
+// --- INFORMAÇÕES DO ADM ---
+let cachedAdminInfo: { adminUid: string; email: string; displayName?: string; photoURL?: string } | null = null;
+
+export async function getAdminInfo(): Promise<{ adminUid: string; email: string; displayName?: string; photoURL?: string } | null> {
+  if (cachedAdminInfo) return cachedAdminInfo;
+  try {
+    const snap = await getDoc(doc(db, 'system', 'admin_info'));
+    if (snap.exists()) {
+      const data = snap.data() as any;
+      if (data.adminUid) {
+        cachedAdminInfo = {
+          adminUid: data.adminUid,
+          email: data.email || ADMIN_EMAIL,
+          displayName: data.displayName || 'Henry Analytics (ADM)',
+          photoURL: data.photoURL || '',
+        };
+        return cachedAdminInfo;
+      }
+    }
+  } catch (e) {
+    // Continua
+  }
+  return null;
+}
+
+export function setCachedAdminInfo(info: { adminUid: string; email: string; displayName?: string; photoURL?: string }) {
+  cachedAdminInfo = info;
+}
+
+// Garante que o usuário siga o ADM oficial (henryanalyticsai@gmail.com)
+export async function ensureFollowAdmin(
+  userUid: string,
+  userName?: string,
+  userPhoto?: string
+): Promise<void> {
+  const adminInfo = await getAdminInfo();
+  if (!adminInfo || adminInfo.adminUid === userUid) return;
+
+  try {
+    const batch = writeBatch(db);
+    // 1. Usuário segue o ADM
+    const followingRef = doc(db, 'users', userUid, 'following', adminInfo.adminUid);
+    batch.set(
+      followingRef,
+      {
+        targetUid: adminInfo.adminUid,
+        targetName: adminInfo.displayName || 'Henry Analytics (ADM)',
+        targetPhoto: adminInfo.photoURL || '',
+        followedAt: new Date().toISOString(),
+      },
+      { merge: true }
+    );
+
+    // 2. ADM ganha este usuário como seguidor
+    const followersRef = doc(db, 'users', adminInfo.adminUid, 'followers', userUid);
+    batch.set(
+      followersRef,
+      {
+        followerUid: userUid,
+        followerName: (userName || '').slice(0, 60),
+        followerPhoto: (userPhoto || '').slice(0, 500),
+        followedAt: new Date().toISOString(),
+      },
+      { merge: true }
+    );
+
+    await batch.commit();
+  } catch (e) {
+    console.warn('Aviso ao sincronizar seguimento automático do ADM:', e);
+  }
+}
 
 // --- USUÁRIOS & PERFIS ---
 
@@ -72,17 +151,46 @@ export async function getCommunityUsers(limitCount: number = 20): Promise<UserPr
 export async function upsertUserProfile(profile: UserProfile): Promise<void> {
   const path = `users/${profile.uid}`;
   try {
-    await setDoc(
-      doc(db, 'users', profile.uid),
-      {
-        uid: profile.uid,
-        displayName: profile.displayName.slice(0, 60),
+    const isAdmUser =
+      profile.isAdmin ||
+      (profile.email && profile.email.toLowerCase() === ADMIN_EMAIL.toLowerCase());
+
+    const payload: any = {
+      uid: profile.uid,
+      displayName: profile.displayName.slice(0, 60),
+      photoURL: profile.photoURL || '',
+      bio: (profile.bio || '').slice(0, 300),
+      createdAt: profile.createdAt || new Date().toISOString(),
+    };
+
+    if (profile.email) payload.email = profile.email;
+    if (isAdmUser) {
+      payload.role = 'admin';
+      payload.isAdmin = true;
+    }
+
+    await setDoc(doc(db, 'users', profile.uid), payload, { merge: true });
+
+    // Se este perfil for o Administrador (henryanalyticsai@gmail.com), registra no documento global do sistema
+    if (isAdmUser) {
+      cachedAdminInfo = {
+        adminUid: profile.uid,
+        email: ADMIN_EMAIL,
+        displayName: profile.displayName,
         photoURL: profile.photoURL || '',
-        bio: (profile.bio || '').slice(0, 300),
-        createdAt: profile.createdAt || new Date().toISOString(),
-      },
-      { merge: true }
-    );
+      };
+      await setDoc(
+        doc(db, 'system', 'admin_info'),
+        {
+          adminUid: profile.uid,
+          email: ADMIN_EMAIL,
+          displayName: profile.displayName,
+          photoURL: profile.photoURL || '',
+          updatedAt: new Date().toISOString(),
+        },
+        { merge: true }
+      ).catch((e) => console.warn('Aviso ao registrar admin_info:', e));
+    }
   } catch (error) {
     handleFirestoreError(error, OperationType.WRITE, path);
   }
@@ -130,7 +238,7 @@ export async function removeUserListItem(uid: string, itemKey: string): Promise<
   }
 }
 
-// --- SEGUINDO (FOLLOWING) ---
+// --- SEGUINDO E SEGUIDORES (FOLLOWING & FOLLOWERS) ---
 
 export function subscribeFollowing(
   uid: string,
@@ -151,20 +259,63 @@ export function subscribeFollowing(
   );
 }
 
+export function subscribeFollowers(
+  uid: string,
+  onUpdate: (followers: FollowerRelation[]) => void
+): Unsubscribe {
+  const path = `users/${uid}/followers`;
+  const followersRef = collection(db, 'users', uid, 'followers');
+
+  return onSnapshot(
+    followersRef,
+    (snapshot) => {
+      const relations: FollowerRelation[] = snapshot.docs.map((d) => d.data() as FollowerRelation);
+      onUpdate(relations);
+    },
+    (error) => {
+      handleFirestoreError(error, OperationType.GET, path);
+    }
+  );
+}
+
 export async function followUser(
   currentUid: string,
   targetUid: string,
   targetName: string = '',
-  targetPhoto: string = ''
+  targetPhoto: string = '',
+  currentUserName: string = '',
+  currentUserPhoto: string = ''
 ): Promise<void> {
   const path = `users/${currentUid}/following/${targetUid}`;
   try {
-    await setDoc(doc(db, 'users', currentUid, 'following', targetUid), {
-      targetUid,
-      targetName: targetName.slice(0, 60),
-      targetPhoto: targetPhoto.slice(0, 500),
-      followedAt: new Date().toISOString(),
-    });
+    const batch = writeBatch(db);
+    // 1. Minha lista de pessoas que sigo
+    const followingRef = doc(db, 'users', currentUid, 'following', targetUid);
+    batch.set(
+      followingRef,
+      {
+        targetUid,
+        targetName: targetName.slice(0, 60),
+        targetPhoto: targetPhoto.slice(0, 500),
+        followedAt: new Date().toISOString(),
+      },
+      { merge: true }
+    );
+
+    // 2. Lista de seguidores no perfil de quem foi seguido
+    const followersRef = doc(db, 'users', targetUid, 'followers', currentUid);
+    batch.set(
+      followersRef,
+      {
+        followerUid: currentUid,
+        followerName: (currentUserName || '').slice(0, 60),
+        followerPhoto: (currentUserPhoto || '').slice(0, 500),
+        followedAt: new Date().toISOString(),
+      },
+      { merge: true }
+    );
+
+    await batch.commit();
   } catch (error) {
     handleFirestoreError(error, OperationType.WRITE, path);
   }
@@ -173,7 +324,10 @@ export async function followUser(
 export async function unfollowUser(currentUid: string, targetUid: string): Promise<void> {
   const path = `users/${currentUid}/following/${targetUid}`;
   try {
-    await deleteDoc(doc(db, 'users', currentUid, 'following', targetUid));
+    const batch = writeBatch(db);
+    batch.delete(doc(db, 'users', currentUid, 'following', targetUid));
+    batch.delete(doc(db, 'users', targetUid, 'followers', currentUid));
+    await batch.commit();
   } catch (error) {
     handleFirestoreError(error, OperationType.DELETE, path);
   }
@@ -192,11 +346,19 @@ export function subscribeFeedPosts(
     (snapshot) => {
       const posts: Post[] = snapshot.docs.map((d) => {
         const data = d.data();
+        const isAdm = Boolean(
+          data.isAdmin ||
+          (data.authorEmail && data.authorEmail.toLowerCase() === ADMIN_EMAIL.toLowerCase()) ||
+          (cachedAdminInfo && cachedAdminInfo.adminUid === data.authorId)
+        );
+
         return {
           id: d.id,
           authorId: data.authorId,
           authorName: data.authorName,
           authorPhoto: data.authorPhoto || '',
+          authorEmail: data.authorEmail,
+          isAdmin: isAdm,
           itemId: data.itemId,
           itemType: data.itemType,
           itemTitle: data.itemTitle,
@@ -232,7 +394,13 @@ export async function createPost(post: Omit<Post, 'id' | 'likeCount'>): Promise<
 
   try {
     const postRef = doc(collection(db, 'posts'));
-    const payload = {
+    const isAdmPost = Boolean(
+      post.isAdmin ||
+      (post.authorEmail && post.authorEmail.toLowerCase() === ADMIN_EMAIL.toLowerCase()) ||
+      (cachedAdminInfo && cachedAdminInfo.adminUid === post.authorId)
+    );
+
+    const payload: any = {
       authorId: post.authorId,
       authorName: post.authorName.slice(0, 60),
       authorPhoto: post.authorPhoto.slice(0, 500),
@@ -247,6 +415,10 @@ export async function createPost(post: Omit<Post, 'id' | 'likeCount'>): Promise<
       hasSpoiler: Boolean(post.hasSpoiler),
       createdAt: post.createdAt || new Date().toISOString(),
     };
+
+    if (post.authorEmail) payload.authorEmail = post.authorEmail;
+    if (isAdmPost) payload.isAdmin = true;
+
     await setDoc(postRef, payload);
     return postRef.id;
   } catch (error) {

@@ -51,6 +51,19 @@ service cloud.firestore {
         allow create, update: if isOwner(userId) && incoming().targetUid == targetUid;
         allow delete: if isOwner(userId);
       }
+
+      // Subcoleção: followers (quem segue este usuário)
+      match /followers/{followerUid} {
+        allow read: if true;
+        allow create, update: if isSignedIn() && request.auth.uid == followerUid;
+        allow delete: if isSignedIn() && request.auth.uid == followerUid;
+      }
+    }
+
+    // --- SYSTEM / METADATA (ex: admin info) ---
+    match /system/{docId} {
+      allow read: if true;
+      allow write: if isSignedIn();
     }
 
     // --- POSTS & LIKES ---
@@ -66,7 +79,9 @@ service cloud.firestore {
           && data.rating is int && data.rating >= 1 && data.rating <= 5
           && data.text is string && data.text.size() <= 1000
           && data.likeCount is int
-          && (!('hasSpoiler' in data) || data.hasSpoiler is bool);
+          && (!('hasSpoiler' in data) || data.hasSpoiler is bool)
+          && (!('authorEmail' in data) || data.authorEmail is string)
+          && (!('isAdmin' in data) || data.isAdmin is bool);
       }
 
       allow create: if isSignedIn()

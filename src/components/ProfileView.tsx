@@ -10,14 +10,25 @@ import {
   ArrowLeft,
   Trophy,
   Award,
+  ShieldCheck,
+  Users,
 } from 'lucide-react';
-import { UserProfile, Post, ListItem, ListStatus, LIST_STATUS_LABELS, MediaType } from '../types/cinebook';
+import {
+  UserProfile,
+  Post,
+  ListItem,
+  ListStatus,
+  LIST_STATUS_LABELS,
+  MediaType,
+  ADMIN_EMAIL,
+} from '../types/cinebook';
 import { useAuth } from '../context/AuthContext';
 import {
   getUserProfile,
   subscribeFeedPosts,
   subscribeUserLists,
   subscribeFollowing,
+  subscribeFollowers,
   followUser,
   unfollowUser,
 } from '../services/firestoreService';
@@ -49,10 +60,16 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
   const [lists, setLists] = useState<ListItem[]>([]);
   const [isFollowing, setIsFollowing] = useState(false);
   const [followingCount, setFollowingCount] = useState(0);
+  const [followersCount, setFollowersCount] = useState(0);
   const [activeTab, setActiveTab] = useState<'reviews' | 'achievements' | 'want' | 'in_progress' | 'completed'>('reviews');
   const [isEditingBio, setIsEditingBio] = useState(false);
   const [bioInput, setBioInput] = useState('');
   const [loading, setLoading] = useState(true);
+
+  const isProfileAdm = Boolean(
+    profile?.isAdmin ||
+    profile?.email?.toLowerCase() === ADMIN_EMAIL.toLowerCase()
+  );
 
   // Gamificação: Conquistas calculadas em tempo real
   const achievements = calculateUserAchievements(posts, lists, followingCount);
@@ -117,11 +134,15 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
       setIsFollowing(false);
       return;
     }
+    if (isProfileAdm) {
+      setIsFollowing(true);
+      return;
+    }
     const unsub = subscribeFollowing(user.uid, (followingList) => {
       setIsFollowing(followingList.some((f) => f.targetUid === currentUid));
     });
     return () => unsub();
-  }, [user, currentUid, isOwnProfile]);
+  }, [user, currentUid, isOwnProfile, isProfileAdm]);
 
   // Track following count of this profile
   useEffect(() => {
@@ -132,18 +153,34 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
     return () => unsub();
   }, [currentUid]);
 
+  // Track followers count of this profile
+  useEffect(() => {
+    if (!currentUid) return;
+    const unsub = subscribeFollowers(currentUid, (followersList) => {
+      setFollowersCount(followersList.length);
+    });
+    return () => unsub();
+  }, [currentUid]);
+
   const handleToggleFollow = async () => {
     if (!user) {
       onOpenAuth();
       return;
     }
-    if (!profile) return;
+    if (!profile || isProfileAdm) return;
 
     try {
       if (isFollowing) {
         await unfollowUser(user.uid, profile.uid);
       } else {
-        await followUser(user.uid, profile.uid, profile.displayName, profile.photoURL);
+        await followUser(
+          user.uid,
+          profile.uid,
+          profile.displayName,
+          profile.photoURL,
+          myProfile?.displayName,
+          myProfile?.photoURL
+        );
       }
     } catch (err) {
       console.error('Erro ao seguir/deixar de seguir:', err);
@@ -227,12 +264,14 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
               <span className="stat-label">Resenhas</span>
             </div>
             <div className="stat-box">
-              <span className="stat-number">{followingCount}</span>
-              <span className="stat-label">Seguindo</span>
+              <span className="stat-number">
+                {isProfileAdm ? 'Todos' : followersCount}
+              </span>
+              <span className="stat-label">Seguidores</span>
             </div>
             <div className="stat-box">
-              <span className="stat-number">{lists.length}</span>
-              <span className="stat-label">Salvos</span>
+              <span className="stat-number">{followingCount}</span>
+              <span className="stat-label">Seguindo</span>
             </div>
             <div
               className="stat-box"
@@ -252,6 +291,11 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
           <h1 className="profile-name" style={{ margin: 0 }}>
             {profile?.displayName || 'Usuário'}
           </h1>
+          {isProfileAdm && (
+            <span className="profile-adm-badge" title="Administrador Oficial do Cinebook">
+              <ShieldCheck size={14} color="#f59e0b" /> ADM Oficial
+            </span>
+          )}
           {topBadge && (
             <button
               type="button"
@@ -322,6 +366,21 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
               <span>Sair</span>
             </button>
           </div>
+        ) : isProfileAdm ? (
+          <button
+            type="button"
+            className="btn-secondary profile-action-btn"
+            style={{
+              borderColor: '#f59e0b',
+              background: 'rgba(245, 158, 11, 0.08)',
+              color: '#d97706',
+              cursor: 'default',
+            }}
+            title="O Administrador é seguido automaticamente por todos os membros do Cinebook"
+          >
+            <ShieldCheck size={18} color="#d97706" />
+            <span>Seguindo (ADM Oficial)</span>
+          </button>
         ) : (
           <button
             type="button"

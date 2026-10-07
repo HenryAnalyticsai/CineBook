@@ -86,6 +86,33 @@
       },
       "required": ["targetUid"]
     },
+    "Follower": {
+      "title": "Follower",
+      "description": "Relação de seguidores do usuário",
+      "type": "object",
+      "properties": {
+        "followerUid": {
+          "type": "string",
+          "maxLength": 128,
+          "description": "UID do seguidor"
+        },
+        "followerName": {
+          "type": "string",
+          "maxLength": 60,
+          "description": "Nome do seguidor"
+        },
+        "followerPhoto": {
+          "type": "string",
+          "maxLength": 1000,
+          "description": "Foto do seguidor"
+        },
+        "followedAt": {
+          "type": "string",
+          "description": "Data em que começou a seguir"
+        }
+      },
+      "required": ["followerUid"]
+    },
     "Post": {
       "title": "Post",
       "description": "Publicação/resenha no feed do Cinebook",
@@ -185,6 +212,10 @@
     "/users/{userId}/following/{targetUid}": {
       "schema": "Following",
       "description": "Pessoas que o usuário segue"
+    },
+    "/users/{userId}/followers/{followerUid}": {
+      "schema": "Follower",
+      "description": "Seguidores do usuário"
     },
     "/posts/{postId}": {
       "schema": "Post",

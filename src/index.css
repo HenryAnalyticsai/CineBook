@@ -1980,4 +1980,192 @@ textarea.form-control {
   box-shadow: var(--shadow-sm);
 }
 
+/* ========================================================
+   REDE SOCIAL: SEGUIDORES, SEGUINDO E ADM CINEBOOK
+   ======================================================== */
+
+.author-name-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.author-badge-adm {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 2px 7px;
+  background: linear-gradient(135deg, #f59e0b, #d97706);
+  color: #fff;
+  border-radius: var(--radius-full);
+  font-size: 0.65rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  box-shadow: 0 1px 4px rgba(217, 119, 6, 0.35);
+}
+
+.author-badge-rel {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 1px 6px;
+  border-radius: var(--radius-full);
+  font-size: 0.64rem;
+  font-weight: 700;
+  border: 1px solid var(--border-color);
+}
+
+.author-badge-rel.follower {
+  background: rgba(16, 185, 129, 0.1);
+  color: #059669;
+  border-color: rgba(16, 185, 129, 0.3);
+}
+
+.author-badge-rel.following {
+  background: rgba(59, 130, 246, 0.1);
+  color: #2563eb;
+  border-color: rgba(59, 130, 246, 0.3);
+}
+
+.author-badge-rel.mutual {
+  background: rgba(139, 92, 246, 0.1);
+  color: #7c3aed;
+  border-color: rgba(139, 92, 246, 0.3);
+}
+
+.author-badge-rel.self {
+  background: rgba(225, 29, 72, 0.08);
+  color: var(--accent-pink);
+  border-color: rgba(225, 29, 72, 0.25);
+}
+
+/* Sub-Filtros de Rede Social no Feed */
+.network-filters-bar {
+  margin-bottom: 16px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+
+.network-filters-bar::-webkit-scrollbar {
+  display: none;
+}
+
+.network-filters-scroll {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 2px 2px 4px;
+}
+
+.network-filter-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  border-radius: var(--radius-full);
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  background: var(--bg-surface);
+  border: 1px solid var(--border-color);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.18s ease;
+}
+
+.network-filter-chip:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+  border-color: var(--border-hover);
+}
+
+.network-filter-chip.active {
+  background: var(--bg-subtle);
+  color: var(--accent-pink);
+  border-color: var(--accent-pink);
+  font-weight: 800;
+  box-shadow: var(--shadow-sm);
+}
+
+.network-filter-chip.adm-chip.active {
+  color: #d97706;
+  border-color: #f59e0b;
+  background: rgba(245, 158, 11, 0.08);
+}
+
+.chip-badge {
+  font-size: 0.65rem;
+  font-weight: 800;
+  padding: 1px 5px;
+  border-radius: var(--radius-full);
+  background: rgba(225, 29, 72, 0.12);
+  color: var(--accent-pink);
+}
+
+.network-filter-chip.active .chip-badge {
+  background: var(--accent-pink);
+  color: #fff;
+}
+
+/* Aviso do ADM no Feed */
+.admin-feed-notice {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  background: rgba(245, 158, 11, 0.08);
+  border: 1.5px solid rgba(245, 158, 11, 0.35);
+  border-radius: var(--radius-md);
+  padding: 12px 16px;
+  margin-bottom: 18px;
+}
+
+.admin-feed-notice strong {
+  display: block;
+  font-size: 0.92rem;
+  color: var(--text-primary);
+  margin-bottom: 2px;
+}
+
+.admin-feed-notice p {
+  font-size: 0.82rem;
+  color: var(--text-secondary);
+  line-height: 1.4;
+  margin: 0;
+}
+
+.admin-feed-notice code {
+  background: rgba(0, 0, 0, 0.06);
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 0.78rem;
+  color: var(--text-primary);
+  font-weight: 700;
+}
+
+[data-theme='dark'] .admin-feed-notice code {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+/* Badge do ADM na tela de perfil */
+.profile-adm-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 10px;
+  border-radius: var(--radius-full);
+  background: rgba(245, 158, 11, 0.12);
+  border: 1px solid rgba(245, 158, 11, 0.4);
+  color: #d97706;
+  font-size: 0.74rem;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+}
+
+[data-theme='dark'] .profile-adm-badge {
+  color: #fbbf24;
+}
+
 

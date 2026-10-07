@@ -1,6 +1,19 @@
 import React, { useState, useEffect } from 'react';
-import { Heart, Star, Bookmark, Trash2, Film, Tv, BookOpen, AlertTriangle, Eye, EyeOff } from 'lucide-react';
-import { Post, MediaType } from '../types/cinebook';
+import {
+  Heart,
+  Star,
+  Bookmark,
+  Trash2,
+  Film,
+  Tv,
+  BookOpen,
+  AlertTriangle,
+  Eye,
+  EyeOff,
+  ShieldCheck,
+  Users,
+} from 'lucide-react';
+import { Post, MediaType, ADMIN_EMAIL } from '../types/cinebook';
 import { useAuth } from '../context/AuthContext';
 import { subscribePostLike, togglePostLike, deletePost } from '../services/firestoreService';
 import { DeletePostModal } from './DeletePostModal';
@@ -8,6 +21,7 @@ import { DeletePostModal } from './DeletePostModal';
 interface PostCardProps {
   post: Post;
   index?: number;
+  relationType?: 'admin' | 'following' | 'follower' | 'mutual' | 'self' | 'none';
   onOpenMediaModal: (item: {
     id: string;
     type: MediaType;
@@ -22,6 +36,7 @@ interface PostCardProps {
 export const PostCard: React.FC<PostCardProps> = ({
   post,
   index,
+  relationType = 'none',
   onOpenMediaModal,
   onViewAuthorProfile,
   onOpenAuth,
@@ -143,7 +158,36 @@ export const PostCard: React.FC<PostCardProps> = ({
             className="author-avatar"
           />
           <div>
-            <div className="author-name">{post.authorName}</div>
+            <div className="author-name-row" style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+              <span className="author-name">{post.authorName}</span>
+              {/* Badge de ADM */}
+              {(post.isAdmin || post.authorEmail?.toLowerCase() === ADMIN_EMAIL.toLowerCase() || relationType === 'admin') && (
+                <span className="author-badge-adm" title="Administrador Oficial do Cinebook">
+                  <ShieldCheck size={11} /> ADM
+                </span>
+              )}
+              {/* Badges de Relacionamento */}
+              {relationType === 'mutual' && (
+                <span className="author-badge-rel mutual" title="Vocês se seguem mutuamente">
+                  🤝 Conexão mútua
+                </span>
+              )}
+              {relationType === 'follower' && (
+                <span className="author-badge-rel follower" title="Este usuário segue você">
+                  <Users size={10} /> Te segue
+                </span>
+              )}
+              {relationType === 'following' && (
+                <span className="author-badge-rel following" title="Você segue este autor">
+                  ⭐ Você segue
+                </span>
+              )}
+              {relationType === 'self' && (
+                <span className="author-badge-rel self" title="Sua publicação">
+                  ✨ Você
+                </span>
+              )}
+            </div>
             <div className="post-time">{formatTime(post.createdAt)}</div>
           </div>
         </button>

@@ -8,12 +8,18 @@ import {
   signInAnonymously,
 } from 'firebase/auth';
 import { auth } from '../firebase';
-import { UserProfile } from '../types/cinebook';
-import { getUserProfile, upsertUserProfile } from '../services/firestoreService';
+import { UserProfile, ADMIN_EMAIL, isAdminEmail } from '../types/cinebook';
+import {
+  getUserProfile,
+  upsertUserProfile,
+  ensureFollowAdmin,
+  setCachedAdminInfo,
+} from '../services/firestoreService';
 
 interface AuthContextType {
   user: User | null;
   profile: UserProfile | null;
+  isAdmin: boolean;
   loading: boolean;
   error: string | null;
   clearError: () => void;
@@ -33,18 +39,24 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const clearError = () => setError(null);
 
+  const isAdmin = Boolean(
+    profile?.isAdmin ||
+    isAdminEmail(user?.email) ||
+    isAdminEmail(profile?.email)
+  );
+
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
       setUser(currentUser);
       if (currentUser) {
         try {
+          const isCurrentUserAdmin = isAdminEmail(currentUser.email);
           let userProfile = await getUserProfile(currentUser.uid);
+
           if (!userProfile) {
-            // Determine display name:
-            // Google user: displayName from Google if exists.
-            // Phone or anonymous: "Usuário" + 4 first characters of uid (CRITICAL SECURITY MANDATE)
-            const defaultName =
-              currentUser.displayName || `Usuário${currentUser.uid.substring(0, 4).toUpperCase()}`;
+            const defaultName = isCurrentUserAdmin
+              ? currentUser.displayName || 'Henry Analytics (ADM)'
+              : currentUser.displayName || `Usuário${currentUser.uid.substring(0, 4).toUpperCase()}`;
 
             const defaultPhoto =
               currentUser.photoURL ||
@@ -54,12 +66,41 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               uid: currentUser.uid,
               displayName: defaultName,
               photoURL: defaultPhoto,
-              bio: 'Amante de cinema, séries e boa literatura no Cinebook.',
+              email: currentUser.email?.toLowerCase(),
+              role: isCurrentUserAdmin ? 'admin' : 'user',
+              isAdmin: isCurrentUserAdmin,
+              bio: isCurrentUserAdmin
+                ? '👑 Perfil Oficial do Administrador do Cinebook.'
+                : 'Amante de cinema, séries e boa literatura no Cinebook.',
               createdAt: new Date().toISOString(),
             };
 
             await upsertUserProfile(userProfile);
+          } else {
+            // Se for admin, garante flags atualizadas
+            if (isCurrentUserAdmin && (!userProfile.isAdmin || userProfile.role !== 'admin')) {
+              userProfile = {
+                ...userProfile,
+                email: currentUser.email?.toLowerCase() || ADMIN_EMAIL,
+                role: 'admin',
+                isAdmin: true,
+              };
+              await upsertUserProfile(userProfile);
+            }
           }
+
+          if (isCurrentUserAdmin) {
+            setCachedAdminInfo({
+              adminUid: currentUser.uid,
+              email: ADMIN_EMAIL,
+              displayName: userProfile.displayName,
+              photoURL: userProfile.photoURL,
+            });
+          } else {
+            // Qualquer outro usuário automaticamente segue o Administrador
+            await ensureFollowAdmin(currentUser.uid, userProfile.displayName, userProfile.photoURL);
+          }
+
           setProfile(userProfile);
         } catch (err: any) {
           console.error('Erro ao sincronizar perfil de usuário:', err);
@@ -173,6 +214,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       value={{
         user,
         profile,
+        isAdmin,
         loading,
         error,
         clearError,
