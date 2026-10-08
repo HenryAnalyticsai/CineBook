@@ -1,5 +1,5 @@
 import React from 'react';
-import { Film, BookOpen, Moon, Sun } from 'lucide-react';
+import { Film, BookOpen, Moon, Sun, Download } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
 interface HeaderProps {
@@ -7,6 +7,7 @@ interface HeaderProps {
   onGoToProfile: () => void;
   theme: 'auto' | 'dark' | 'light';
   onToggleTheme: () => void;
+  onOpenInstall?: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -14,6 +15,7 @@ export const Header: React.FC<HeaderProps> = ({
   onGoToProfile,
   theme,
   onToggleTheme,
+  onOpenInstall,
 }) => {
   const { user, profile } = useAuth();
 
@@ -29,6 +31,20 @@ export const Header: React.FC<HeaderProps> = ({
         </a>
 
         <div className="header-actions">
+          {/* Botão Baixar App */}
+          {onOpenInstall && (
+            <button
+              type="button"
+              className="btn-install-header"
+              onClick={onOpenInstall}
+              title="Baixar ou Instalar o Aplicativo Cinebook"
+              aria-label="Baixar o App Cinebook"
+            >
+              <Download size={15} />
+              <span className="install-label">Baixar App</span>
+            </button>
+          )}
+
           {/* Alternar Tema */}
           <button
             type="button"

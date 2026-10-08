@@ -9,6 +9,8 @@ import { ProfileView } from './components/ProfileView';
 import { MediaDetailModal } from './components/MediaDetailModal';
 import { CreatePostModal } from './components/CreatePostModal';
 import { AuthModal } from './components/AuthModal';
+import { InstallAppModal } from './components/InstallAppModal';
+import { InstallBanner } from './components/InstallBanner';
 import { TmdbFooter } from './components/TmdbFooter';
 import { MediaType } from './types/cinebook';
 
@@ -24,6 +26,7 @@ function CinebookApp() {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [createInitialMedia, setCreateInitialMedia] = useState<any | null>(null);
   const [showAuthModal, setShowAuthModal] = useState(false);
+  const [showInstallModal, setShowInstallModal] = useState(false);
 
   // Dark/Light Theme
   const [theme, setTheme] = useState<'auto' | 'dark' | 'light'>('auto');
@@ -94,6 +97,7 @@ function CinebookApp() {
         theme={theme}
         onToggleTheme={handleToggleTheme}
         onOpenAuth={() => setShowAuthModal(true)}
+        onOpenInstall={() => setShowInstallModal(true)}
         onGoToProfile={() => {
           setViewingProfileUid(null);
           setCurrentTab('profile');
@@ -144,9 +148,13 @@ function CinebookApp() {
             onOpenMediaModal={(media) => setSelectedMedia(media)}
             onViewAuthorProfile={handleViewAuthorProfile}
             onOpenAuth={() => setShowAuthModal(true)}
+            onOpenInstall={() => setShowInstallModal(true)}
           />
         )}
       </main>
+
+      {/* Banner Sutil de Convite para Instalar App */}
+      <InstallBanner onOpenInstallModal={() => setShowInstallModal(true)} />
 
       {/* Rodapé com Atribuição TMDB */}
       <TmdbFooter />
@@ -182,6 +190,11 @@ function CinebookApp() {
       {/* Modal de Autenticação (Google e Celular) */}
       {showAuthModal && (
         <AuthModal onClose={() => setShowAuthModal(false)} />
+      )}
+
+      {/* Modal de Baixar/Instalar Aplicativo Cinebook */}
+      {showInstallModal && (
+        <InstallAppModal onClose={() => setShowInstallModal(false)} />
       )}
     </div>
   );

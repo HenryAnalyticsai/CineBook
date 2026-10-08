@@ -12,6 +12,7 @@ import {
   Award,
   ShieldCheck,
   Users,
+  Download,
 } from 'lucide-react';
 import {
   UserProfile,
@@ -42,6 +43,7 @@ interface ProfileViewProps {
   onOpenMediaModal: (item: any) => void;
   onViewAuthorProfile: (authorId: string) => void;
   onOpenAuth: () => void;
+  onOpenInstall?: () => void;
 }
 
 export const ProfileView: React.FC<ProfileViewProps> = ({
@@ -50,6 +52,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
   onOpenMediaModal,
   onViewAuthorProfile,
   onOpenAuth,
+  onOpenInstall,
 }) => {
   const { user, profile: myProfile, logout, updateProfileBio } = useAuth();
   const currentUid = targetUserId || user?.uid;
@@ -346,6 +349,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
 
         {/* Botões de Ação do Perfil */}
         {isOwnProfile ? (
+          <>
           <div className="profile-actions-row">
             <button
               type="button"
@@ -365,6 +369,28 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
               <span>Sair da Conta</span>
             </button>
           </div>
+          {onOpenInstall && (
+            <div className="profile-install-card">
+              <div className="profile-install-info">
+                <div className="profile-install-icon">
+                  <Download size={18} color="var(--accent-pink)" />
+                </div>
+                <div>
+                  <strong>Baixar Aplicativo Cinebook</strong>
+                  <p>Instale no seu dispositivo para acesso rápido em tela cheia.</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                className="btn-primary"
+                onClick={onOpenInstall}
+                style={{ fontSize: '0.8rem', padding: '7px 14px', borderRadius: 'var(--radius-full)', whiteSpace: 'nowrap', fontWeight: 700 }}
+              >
+                Baixar App
+              </button>
+            </div>
+          )}
+          </>
         ) : isProfileAdm ? (
           <button
             type="button"
