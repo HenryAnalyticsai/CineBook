@@ -70,54 +70,64 @@ export const POPULAR_BOOKS: MediaItem[] = [
   },
 ];
 
+function normalizeText(text?: string | null): string {
+  return (text || '')
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .trim();
+}
+
 export async function searchOpenLibraryBooks(query: string): Promise<MediaItem[]> {
+  const normQuery = normalizeText(query);
+  const localMatches = POPULAR_BOOKS.filter(
+    (b) =>
+      normalizeText(b.title).includes(normQuery) ||
+      normalizeText(b.originalTitle).includes(normQuery) ||
+      (b.author && normalizeText(b.author).includes(normQuery))
+  );
+
   try {
     const encoded = encodeURIComponent(query);
-    const res = await fetch(`https://openlibrary.org/search.json?q=${encoded}&limit=12`);
-    if (!res.ok) return [];
+    const res = await fetch(`/api/books/search?query=${encoded}`);
+    if (!res.ok) return localMatches;
 
     const data = await res.json();
-    const docs = data.docs || [];
+    const results = Array.isArray(data.results) ? data.results : [];
 
-    return docs
-      .filter((doc: any) => doc.title && (doc.cover_i || doc.isbn?.length))
-      .map((doc: any): MediaItem => {
-        const coverId = doc.cover_i;
-        const poster = coverId
-          ? `https://covers.openlibrary.org/b/id/${coverId}-L.jpg`
-          : doc.isbn?.[0]
-          ? `https://covers.openlibrary.org/b/isbn/${doc.isbn[0]}-L.jpg`
-          : null;
+    if (results.length === 0) return localMatches;
 
-        const workKey = doc.key ? doc.key.replace('/works/', '') : String(Math.random());
-        const author = Array.isArray(doc.author_name) ? doc.author_name.join(', ') : doc.author_name || 'Autor Desconhecido';
+    // Deduplicate by title
+    const seen = new Set<string>();
+    const combined = [...results, ...localMatches].filter((b) => {
+      const normTitle = normalizeText(b.title);
+      if (seen.has(normTitle)) return false;
+      seen.add(normTitle);
+      return true;
+    });
 
-        return {
-          id: workKey,
-          type: 'book',
-          title: doc.title,
-          originalTitle: doc.title,
-          poster: poster,
-          year: doc.first_publish_year ? String(doc.first_publish_year) : '',
-          author: author,
-          overview: doc.first_sentence ? doc.first_sentence.join(' ') : `Obra de ${author}.`,
-          voteAverage: 4.5,
-        };
-      });
+    return combined;
   } catch (err) {
-    console.error('Erro ao buscar livros na Open Library:', err);
-    return [];
+    console.warn('Erro ao buscar livros na API, usando livros locais:', err);
+    return localMatches;
   }
 }
 
 export async function searchTmdbMedia(query: string): Promise<MediaItem[]> {
+  const normQuery = normalizeText(query);
+  const localFallbackMatches = POPULAR_TRENDING_FALLBACK.filter(
+    (m) =>
+      normalizeText(m.title).includes(normQuery) ||
+      normalizeText(m.originalTitle).includes(normQuery)
+  );
+
   try {
     const res = await fetch(`/api/tmdb/search?query=${encodeURIComponent(query)}`);
-    if (!res.ok) return [];
+    if (!res.ok) return localFallbackMatches;
     const data = await res.json();
-    return (data.results || []).map((item: any) => ({
-      id: item.id,
-      type: item.type as 'movie' | 'series',
+    const results = (data.results || []).map((item: any) => ({
+      id: String(item.id),
+      type: (item.type === 'tv' || item.type === 'series' ? 'series' : 'movie') as 'movie' | 'series',
       title: item.title,
       originalTitle: item.originalTitle,
       poster: item.poster,
@@ -125,9 +135,12 @@ export async function searchTmdbMedia(query: string): Promise<MediaItem[]> {
       overview: item.overview,
       voteAverage: item.voteAverage,
     }));
+
+    if (results.length === 0) return localFallbackMatches;
+    return results;
   } catch (err) {
-    console.error('Erro ao buscar filmes/séries:', err);
-    return [];
+    console.warn('Erro ao buscar filmes/séries no TMDB, usando fallback:', err);
+    return localFallbackMatches;
   }
 }
 
@@ -307,13 +320,14 @@ export async function searchAllMedia(
   query: string,
   filterType: 'all' | 'movie' | 'series' | 'book' = 'all'
 ): Promise<MediaItem[]> {
-  if (!query.trim()) return [];
+  const trimmed = query.trim();
+  if (!trimmed) return [];
 
-  const promises: Promise<MediaItem[]>[] = [];
+  const tasks: Promise<MediaItem[]>[] = [];
 
   if (filterType === 'all' || filterType === 'movie' || filterType === 'series') {
-    promises.push(
-      searchTmdbMedia(query).then((items) => {
+    tasks.push(
+      searchTmdbMedia(trimmed).then((items) => {
         if (filterType === 'all') return items;
         return items.filter((item) => item.type === filterType);
       })
@@ -321,28 +335,26 @@ export async function searchAllMedia(
   }
 
   if (filterType === 'all' || filterType === 'book') {
-    promises.push(
-      searchOpenLibraryBooks(query).then((items) => {
-        // Also check popular books list
-        const popularMatch = POPULAR_BOOKS.filter((b) =>
-          b.title.toLowerCase().includes(query.toLowerCase()) ||
-          (b.author && b.author.toLowerCase().includes(query.toLowerCase()))
-        );
-        const combined = [...popularMatch, ...items];
-        // Deduplicate by ID
-        const seen = new Set<string>();
-        return combined.filter((b) => {
-          if (seen.has(b.id)) return false;
-          seen.add(b.id);
-          return true;
-        });
-      })
-    );
+    tasks.push(searchOpenLibraryBooks(trimmed));
   }
 
-  const results = await Promise.all(promises);
-  const flattened = results.flat();
+  const settled = await Promise.allSettled(tasks);
+  const collected: MediaItem[] = [];
 
-  // If filtered by all, interleave nicely
-  return flattened;
+  for (const item of settled) {
+    if (item.status === 'fulfilled' && Array.isArray(item.value)) {
+      collected.push(...item.value);
+    }
+  }
+
+  // Deduplicate by ID and Title
+  const seenIds = new Set<string>();
+  const seenKeys = new Set<string>();
+  return collected.filter((item) => {
+    const key = `${item.type}_${normalizeText(item.title)}`;
+    if (seenIds.has(item.id) || seenKeys.has(key)) return false;
+    seenIds.add(item.id);
+    seenKeys.add(key);
+    return true;
+  });
 }

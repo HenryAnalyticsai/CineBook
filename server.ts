@@ -162,6 +162,204 @@ function getTmdbHeaders(): Record<string, string> {
   };
 }
 
+function normalizeText(text: string): string {
+  return (text || '')
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .trim();
+}
+
+const CURATED_BOOKS = [
+  {
+    id: 'OL2163462W',
+    type: 'book',
+    title: 'Dom Casmurro',
+    originalTitle: 'Dom Casmurro',
+    poster: 'https://covers.openlibrary.org/b/id/8231856-L.jpg',
+    year: '1899',
+    overview: 'A célebre narrativa de Bento Santiago sobre sua paixão por Capitu, repleta de dúvidas e a eterna pergunta: Capitu traiu ou não traiu Bentinho?',
+    author: 'Machado de Assis',
+    voteAverage: 4.8,
+  },
+  {
+    id: 'OL27479W',
+    type: 'book',
+    title: 'O Pequeno Príncipe',
+    originalTitle: 'Le Petit Prince',
+    poster: 'https://covers.openlibrary.org/b/id/12833521-L.jpg',
+    year: '1943',
+    overview: 'Um piloto cai no deserto do Saara e encontra um jovem príncipe vindo de um minúsculo asteroide. Uma fábula poética sobre o amor e a amizade.',
+    author: 'Antoine de Saint-Exupéry',
+    voteAverage: 4.9,
+  },
+  {
+    id: 'OL262758W',
+    type: 'book',
+    title: '1984',
+    originalTitle: 'Nineteen Eighty-Four',
+    poster: 'https://covers.openlibrary.org/b/id/12843864-L.jpg',
+    year: '1949',
+    overview: 'A distopia definitiva de George Orwell sobre Winston Smith lutando contra a onipresença opressiva do Grande Irmão e do Partido.',
+    author: 'George Orwell',
+    voteAverage: 4.7,
+  },
+  {
+    id: 'OL1168007W',
+    type: 'book',
+    title: 'A Revolução dos Bichos',
+    originalTitle: 'Animal Farm',
+    poster: 'https://covers.openlibrary.org/b/id/11261342-L.jpg',
+    year: '1945',
+    overview: 'Uma sátira política clássica em que os animais da Fazenda do Solar se rebelam contra seus donos humanos em busca de igualdade.',
+    author: 'George Orwell',
+    voteAverage: 4.8,
+  },
+  {
+    id: 'OL15358658W',
+    type: 'book',
+    title: 'Torto Arado',
+    originalTitle: 'Torto Arado',
+    poster: 'https://covers.openlibrary.org/b/id/12560312-L.jpg',
+    year: '2019',
+    overview: 'Nas profundezas do sertão baiano, as irmãs Bibiana e Belonísia encontram uma misteriosa faca. Uma saga épica de resistência e ancestralidade.',
+    author: 'Itamar Vieira Junior',
+    voteAverage: 4.9,
+  },
+  {
+    id: 'OL263158W',
+    type: 'book',
+    title: 'O Senhor dos Anéis: A Sociedade do Anel',
+    originalTitle: 'The Fellowship of the Ring',
+    poster: 'https://covers.openlibrary.org/b/id/14441584-L.jpg',
+    year: '1954',
+    overview: 'O jovem hobbit Frodo Bolseiro recebe a imensa e perigosa tarefa de destruir o Um Anel nas profundezas de Mordor.',
+    author: 'J.R.R. Tolkien',
+    voteAverage: 4.9,
+  },
+  {
+    id: 'OL82563W',
+    type: 'book',
+    title: 'Cem Anos de Solidão',
+    originalTitle: 'Cien años de soledad',
+    poster: 'https://covers.openlibrary.org/b/id/10521270-L.jpg',
+    year: '1967',
+    overview: 'A monumental crônica da família Buendía na mágica e mística aldeia de Macondo.',
+    author: 'Gabriel García Márquez',
+    voteAverage: 4.8,
+  },
+  {
+    id: 'OL82586W',
+    type: 'book',
+    title: 'Harry Potter e a Pedra Filosofal',
+    originalTitle: "Harry Potter and the Philosopher's Stone",
+    poster: 'https://covers.openlibrary.org/b/id/10521270-L.jpg',
+    year: '1997',
+    overview: 'O jovem bruxo órfão Harry Potter descobre sua verdadeira herança mágica e ingressa na Escola de Magia e Bruxaria de Hogwarts.',
+    author: 'J.K. Rowling',
+    voteAverage: 4.9,
+  },
+  {
+    id: 'OL82587W',
+    type: 'book',
+    title: 'Harry Potter e o Prisioneiro de Azkaban',
+    originalTitle: 'Harry Potter and the Prisoner of Azkaban',
+    poster: 'https://covers.openlibrary.org/b/id/10521271-L.jpg',
+    year: '1999',
+    overview: 'Em seu terceiro ano em Hogwarts, Harry investiga a fuga de Sirius Black da temida prisão de bruxos Azkaban.',
+    author: 'J.K. Rowling',
+    voteAverage: 4.9,
+  },
+  {
+    id: 'OL262752W',
+    type: 'book',
+    title: 'O Hobbit',
+    originalTitle: 'The Hobbit',
+    poster: 'https://covers.openlibrary.org/b/id/12843865-L.jpg',
+    year: '1937',
+    overview: 'Bilbo Bolseiro vive uma vida pacata até ser arrastado pelo mago Gandalf e treze anões em uma expedição para resgatar um tesouro guardado por Smaug.',
+    author: 'J.R.R. Tolkien',
+    voteAverage: 4.8,
+  },
+  {
+    id: 'OL491702W',
+    type: 'book',
+    title: 'Percy Jackson e o Ladrão de Raios',
+    originalTitle: 'The Lightning Thief',
+    poster: 'https://covers.openlibrary.org/b/id/8302526-L.jpg',
+    year: '2005',
+    overview: 'Percy Jackson descobre que é um semideus, filho de Poseidon, e é acusado injustamente de ter roubado o raio-mestre de Zeus.',
+    author: 'Rick Riordan',
+    voteAverage: 4.8,
+  },
+  {
+    id: 'OL2163458W',
+    type: 'book',
+    title: 'Memórias Póstumas de Brás Cubas',
+    originalTitle: 'Memórias Póstumas de Brás Cubas',
+    poster: 'https://covers.openlibrary.org/b/id/8231852-L.jpg',
+    year: '1881',
+    overview: 'Um defunto autor narra sua vida com ironia cáustica e humor refinado, revolucionando a literatura brasileira.',
+    author: 'Machado de Assis',
+    voteAverage: 4.9,
+  },
+  {
+    id: 'OL2163460W',
+    type: 'book',
+    title: 'A Hora da Estrela',
+    originalTitle: 'A Hora da Estrela',
+    poster: 'https://covers.openlibrary.org/b/id/8231850-L.jpg',
+    year: '1977',
+    overview: 'A tocante e poética história da jovem alagoana Macabéa no Rio de Janeiro, narrada pelo escritor Rodrigo S.M.',
+    author: 'Clarice Lispector',
+    voteAverage: 4.8,
+  },
+  {
+    id: 'OL2163465W',
+    type: 'book',
+    title: 'Capitães da Areia',
+    originalTitle: 'Capitães da Areia',
+    poster: 'https://covers.openlibrary.org/b/id/8231855-L.jpg',
+    year: '1937',
+    overview: 'A comovente saga de um grupo de meninos abandonados que vivem em um trapiche abandonado nas praias de Salvador.',
+    author: 'Jorge Amado',
+    voteAverage: 4.8,
+  },
+  {
+    id: 'OL263159W',
+    type: 'book',
+    title: 'Duna',
+    originalTitle: 'Dune',
+    poster: 'https://covers.openlibrary.org/b/id/12843869-L.jpg',
+    year: '1965',
+    overview: 'No planeta desértico Arrakis, o jovem Paul Atreides enfrenta traições e se torna o messias profetizado de um povo guerreiro.',
+    author: 'Frank Herbert',
+    voteAverage: 4.8,
+  },
+  {
+    id: 'OL263160W',
+    type: 'book',
+    title: 'O Alquimista',
+    originalTitle: 'O Alquimista',
+    poster: 'https://covers.openlibrary.org/b/id/12843870-L.jpg',
+    year: '1988',
+    overview: 'A jornada mágica do pastor andaluz Santiago pelo deserto egípcio em busca de sua Lenda Pessoal e de um tesouro escondido.',
+    author: 'Paulo Coelho',
+    voteAverage: 4.6,
+  },
+  {
+    id: 'OL263161W',
+    type: 'book',
+    title: 'É Assim Que Acaba',
+    originalTitle: 'It Ends with Us',
+    poster: 'https://covers.openlibrary.org/b/id/12843871-L.jpg',
+    year: '2016',
+    overview: 'Lily Bloom vive um relacionamento intenso e complexo, precisando tomar as decisões mais difíceis de sua vida.',
+    author: 'Colleen Hoover',
+    voteAverage: 4.7,
+  },
+];
+
 // TMDB Search API route
 app.get('/api/tmdb/search', async (req: Request, res: Response) => {
   const query = (req.query.query as string || '').trim();
@@ -173,17 +371,18 @@ app.get('/api/tmdb/search', async (req: Request, res: Response) => {
 
   const token = process.env.TMDB_READ_ACCESS_TOKEN;
   const apiKey = process.env.TMDB_API_KEY;
+  const normQuery = normalizeText(query);
+
+  const fallbackFiltered = SAMPLE_MEDIA.filter(
+    (item) =>
+      normalizeText(item.title).includes(normQuery) ||
+      normalizeText(item.originalTitle).includes(normQuery)
+  );
 
   if (!token && !apiKey) {
-    // Return filtered sample results if no TMDB credentials configured yet
-    const filtered = SAMPLE_MEDIA.filter(
-      (item) =>
-        item.title.toLowerCase().includes(query.toLowerCase()) ||
-        item.originalTitle.toLowerCase().includes(query.toLowerCase())
-    );
     return res.json({
-      results: filtered,
-      total_results: filtered.length,
+      results: fallbackFiltered,
+      total_results: fallbackFiltered.length,
       isFallback: true,
       notice: 'Adicione TMDB_READ_ACCESS_TOKEN em .env.local para busca completa no catálogo TMDB',
     });
@@ -195,11 +394,15 @@ app.get('/api/tmdb/search', async (req: Request, res: Response) => {
       url += `&api_key=${apiKey}`;
     }
 
-    const response = await fetch(url, { headers: getTmdbHeaders() });
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 5000);
+
+    const response = await fetch(url, { headers: getTmdbHeaders(), signal: controller.signal });
+    clearTimeout(timeoutId);
+
     if (!response.ok) {
-      const errText = await response.text();
-      console.error('TMDB API Error:', response.status, errText);
-      return res.status(response.status).json({ error: 'Erro ao buscar no TMDB', details: errText });
+      console.warn('TMDB search not OK, status:', response.status);
+      return res.json({ results: fallbackFiltered, total_results: fallbackFiltered.length, isFallback: true });
     }
 
     const data = await response.json();
@@ -216,15 +419,94 @@ app.get('/api/tmdb/search', async (req: Request, res: Response) => {
         voteAverage: item.vote_average || 0,
       }));
 
+    const finalResults = formatted.length > 0 ? formatted : fallbackFiltered;
+
     return res.json({
-      results: formatted,
-      total_results: data.total_results || formatted.length,
+      results: finalResults,
+      total_results: data.total_results || finalResults.length,
       page: data.page || 1,
     });
   } catch (error: any) {
-    console.error('Erro na rota de busca TMDB:', error);
-    return res.status(500).json({ error: 'Falha interna ao contatar TMDB' });
+    console.error('Erro na rota de busca TMDB, usando catálogo popular:', error);
+    return res.json({ results: fallbackFiltered, total_results: fallbackFiltered.length, isFallback: true });
   }
+});
+
+// Books Search API route (Open Library + Livros Populares com Cores e Sinopses)
+app.get('/api/books/search', async (req: Request, res: Response) => {
+  const query = (req.query.query as string || '').trim();
+
+  if (!query) {
+    return res.json({ results: [] });
+  }
+
+  const normQuery = normalizeText(query);
+
+  // Filtra primeiro livros populares locais (ultra-rápido e garantido)
+  const curatedMatches = CURATED_BOOKS.filter(
+    (b) =>
+      normalizeText(b.title).includes(normQuery) ||
+      normalizeText(b.originalTitle).includes(normQuery) ||
+      (b.author && normalizeText(b.author).includes(normQuery))
+  );
+
+  let openLibraryResults: any[] = [];
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 4500);
+
+    const olRes = await fetch(
+      `https://openlibrary.org/search.json?q=${encodeURIComponent(query)}&limit=14`,
+      { signal: controller.signal }
+    );
+    clearTimeout(timeoutId);
+
+    if (olRes.ok) {
+      const olData = await olRes.json();
+      const docs = olData.docs || [];
+      openLibraryResults = docs
+        .filter((doc: any) => doc.title)
+        .map((doc: any) => {
+          const coverId = doc.cover_i;
+          const poster = coverId
+            ? `https://covers.openlibrary.org/b/id/${coverId}-L.jpg`
+            : doc.isbn?.[0]
+            ? `https://covers.openlibrary.org/b/isbn/${doc.isbn[0]}-L.jpg`
+            : null;
+
+          const workKey = doc.key ? doc.key.replace('/works/', '') : `ol_${Math.random()}`;
+          const author = Array.isArray(doc.author_name)
+            ? doc.author_name.join(', ')
+            : doc.author_name || 'Autor Desconhecido';
+
+          return {
+            id: workKey,
+            type: 'book',
+            title: doc.title,
+            originalTitle: doc.title,
+            poster: poster,
+            year: doc.first_publish_year ? String(doc.first_publish_year) : '',
+            author: author,
+            overview: doc.first_sentence ? (Array.isArray(doc.first_sentence) ? doc.first_sentence.join(' ') : doc.first_sentence) : `Livro de ${author}.`,
+            voteAverage: 4.6,
+          };
+        });
+    }
+  } catch (err) {
+    console.warn('Erro ao consultar Open Library no servidor, usando livros locais:', err);
+  }
+
+  // Combina e remove duplicatas por ID ou título
+  const combined = [...curatedMatches, ...openLibraryResults];
+  const seenTitles = new Set<string>();
+  const uniqueResults = combined.filter((b) => {
+    const normTitle = normalizeText(b.title);
+    if (seenTitles.has(normTitle)) return false;
+    seenTitles.add(normTitle);
+    return true;
+  });
+
+  return res.json({ results: uniqueResults });
 });
 
 // TMDB Trending / Destaques

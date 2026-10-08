@@ -476,7 +476,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onClose }) => {
                   </div>
                 </div>
 
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                   <button
                     type="button"
                     className="btn-primary"
@@ -484,10 +484,11 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onClose }) => {
                     disabled={loading}
                     style={{
                       width: '100%',
-                      padding: '13px',
+                      minHeight: '46px',
+                      padding: '0 16px',
                       borderRadius: 'var(--radius-md)',
-                      fontWeight: 800,
-                      fontSize: '0.96rem',
+                      fontWeight: 700,
+                      fontSize: '0.94rem',
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center',
@@ -505,17 +506,18 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onClose }) => {
                     disabled={loading}
                     style={{
                       width: '100%',
-                      padding: '11px',
+                      minHeight: '46px',
+                      padding: '0 16px',
                       borderRadius: 'var(--radius-md)',
-                      fontSize: '0.88rem',
+                      fontSize: '0.9rem',
                       fontWeight: 600,
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center',
-                      gap: '6px',
+                      gap: '8px',
                     }}
                   >
-                    <Edit2 size={14} />
+                    <Edit2 size={16} />
                     <span>Corrigir número digitado</span>
                   </button>
                 </div>

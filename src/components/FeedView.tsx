@@ -12,6 +12,7 @@ import {
   Tv,
   ShieldCheck,
   UserCheck,
+  Globe,
 } from 'lucide-react';
 import {
   Post,
@@ -373,9 +374,11 @@ export const FeedView: React.FC<FeedViewProps> = ({
       </section>
 
       {/* Feed Tabs: Para Você (Geral) vs Seguidores & Seguindo */}
-      <div className="feed-tabs">
+      <div className="feed-tabs" role="tablist">
         <button
           type="button"
+          role="tab"
+          aria-selected={activeTab === 'recent'}
           className={`feed-tab-btn ${activeTab === 'recent' ? 'active' : ''}`}
           onClick={() => setActiveTab('recent')}
         >
@@ -384,6 +387,8 @@ export const FeedView: React.FC<FeedViewProps> = ({
         </button>
         <button
           type="button"
+          role="tab"
+          aria-selected={activeTab === 'network'}
           className={`feed-tab-btn ${activeTab === 'network' ? 'active' : ''}`}
           onClick={() => {
             if (!user) {
@@ -394,25 +399,16 @@ export const FeedView: React.FC<FeedViewProps> = ({
           }}
         >
           <Users size={16} />
-          <span>Seguidores & Seguindo</span>
+          <span>Seguindo & Conexões</span>
           {user && (followerUids.size > 0 || followingUids.size > 0) && (
-            <span
-              style={{
-                fontSize: '0.68rem',
-                padding: '2px 6px',
-                borderRadius: 'var(--radius-full)',
-                background: 'rgba(225, 29, 72, 0.12)',
-                color: 'var(--accent-pink)',
-                fontWeight: 800,
-              }}
-            >
-              {isCurrentUserAdmin ? 'ADM' : `${followerUids.size} seg.`}
+            <span className="feed-tab-badge">
+              {isCurrentUserAdmin ? 'ADM' : `${followerUids.size}`}
             </span>
           )}
         </button>
       </div>
 
-      {/* Sub-Filtros de Rede Social: Meus Seguidores, Quem Eu Sigo e ADM */}
+      {/* Sub-Filtros de Rede Social: Simetria Perfeita em Ícones, Alturas e Textos */}
       {user && (
         <div className="network-filters-bar">
           <div className="network-filters-scroll">
@@ -421,6 +417,7 @@ export const FeedView: React.FC<FeedViewProps> = ({
               className={`network-filter-chip ${networkFilter === 'all' ? 'active' : ''}`}
               onClick={() => setNetworkFilter('all')}
             >
+              <Globe size={15} />
               <span>Todas as resenhas</span>
             </button>
 
@@ -429,7 +426,7 @@ export const FeedView: React.FC<FeedViewProps> = ({
               className={`network-filter-chip ${networkFilter === 'followers' ? 'active' : ''}`}
               onClick={() => setNetworkFilter('followers')}
             >
-              <Users size={13} />
+              <Users size={15} />
               <span>Meus Seguidores</span>
               {isCurrentUserAdmin ? (
                 <span className="chip-badge">Todos</span>
@@ -443,7 +440,8 @@ export const FeedView: React.FC<FeedViewProps> = ({
               className={`network-filter-chip ${networkFilter === 'following' ? 'active' : ''}`}
               onClick={() => setNetworkFilter('following')}
             >
-              <span>⭐ Quem Eu Sigo</span>
+              <UserCheck size={15} />
+              <span>Quem Eu Sigo</span>
               {followingUids.size > 0 && <span className="chip-badge">{followingUids.size}</span>}
             </button>
 
@@ -453,7 +451,7 @@ export const FeedView: React.FC<FeedViewProps> = ({
               onClick={() => setNetworkFilter('admin')}
               title="Ver publicações oficiais do Administrador"
             >
-              <ShieldCheck size={14} color="#f59e0b" />
+              <ShieldCheck size={15} />
               <span>Postagens do ADM</span>
             </button>
           </div>

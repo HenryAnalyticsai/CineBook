@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   Search as SearchIcon,
   Film,
@@ -9,6 +9,10 @@ import {
   UserCheck,
   ShieldCheck,
   Loader2,
+  X,
+  Layers,
+  Sparkles,
+  ArrowRight,
 } from 'lucide-react';
 import { MediaItem, MediaType, UserProfile, FollowingRelation, ADMIN_EMAIL, isAdminEmail } from '../types/cinebook';
 import { searchAllMedia, POPULAR_BOOKS, getTrendingTmdb } from '../services/mediaService';
@@ -35,6 +39,17 @@ interface SearchViewProps {
   onOpenAuth: () => void;
 }
 
+const QUICK_SUGGESTIONS = [
+  { label: 'Interestelar', icon: '🎬' },
+  { label: 'Duna', icon: '🎬' },
+  { label: 'Stranger Things', icon: '📺' },
+  { label: 'The Last of Us', icon: '📺' },
+  { label: 'Dom Casmurro', icon: '📚' },
+  { label: 'O Pequeno Príncipe', icon: '📚' },
+  { label: 'Harry Potter', icon: '📚' },
+  { label: 'Torto Arado', icon: '📚' },
+];
+
 export const SearchView: React.FC<SearchViewProps> = ({
   onOpenMediaModal,
   onViewAuthorProfile,
@@ -48,6 +63,9 @@ export const SearchView: React.FC<SearchViewProps> = ({
   const [following, setFollowing] = useState<FollowingRelation[]>([]);
   const [loading, setLoading] = useState(false);
   const [hasSearched, setHasSearched] = useState(false);
+
+  const debounceTimerRef = useRef<any>(null);
+  const searchRequestIdRef = useRef<number>(0);
 
   // Subscribe to following list of logged in user
   useEffect(() => {
@@ -65,32 +83,45 @@ export const SearchView: React.FC<SearchViewProps> = ({
   useEffect(() => {
     const loadDefaultData = async () => {
       setLoading(true);
-      const trending = await getTrendingTmdb();
-      const combined = [...POPULAR_BOOKS, ...trending];
-      setMediaResults(combined);
+      try {
+        const trending = await getTrendingTmdb();
+        const combined = [...POPULAR_BOOKS, ...trending];
+        setMediaResults(combined);
 
-      const community = await getCommunityUsers(15);
-      setUserResults(community);
-      setLoading(false);
+        const community = await getCommunityUsers(15);
+        setUserResults(community);
+      } catch (err) {
+        console.error('Erro ao carregar dados iniciais da busca:', err);
+      } finally {
+        setLoading(false);
+      }
     };
     loadDefaultData();
   }, []);
 
-  const handleSearch = async (searchTerm: string, filter: 'all' | 'movie' | 'series' | 'book' | 'users') => {
+  const executeSearch = async (searchTerm: string, filter: 'all' | 'movie' | 'series' | 'book' | 'users') => {
     const trimmed = searchTerm.trim();
+    const requestId = ++searchRequestIdRef.current;
 
     if (!trimmed) {
       setLoading(true);
-      if (filter === 'users') {
-        const community = await getCommunityUsers(15);
-        setUserResults(community);
-      } else {
-        const trending = await getTrendingTmdb();
-        const combined = [...POPULAR_BOOKS, ...trending];
-        setMediaResults(filter === 'all' ? combined : combined.filter((i) => i.type === filter));
+      try {
+        if (filter === 'users') {
+          const community = await getCommunityUsers(15);
+          if (requestId === searchRequestIdRef.current) setUserResults(community);
+        } else {
+          const trending = await getTrendingTmdb();
+          const combined = [...POPULAR_BOOKS, ...trending];
+          if (requestId === searchRequestIdRef.current) {
+            setMediaResults(filter === 'all' ? combined : combined.filter((i) => i.type === filter));
+          }
+        }
+      } finally {
+        if (requestId === searchRequestIdRef.current) {
+          setHasSearched(false);
+          setLoading(false);
+        }
       }
-      setHasSearched(false);
-      setLoading(false);
       return;
     }
 
@@ -100,28 +131,88 @@ export const SearchView: React.FC<SearchViewProps> = ({
     try {
       if (filter === 'users') {
         const usersFound = await searchUsers(trimmed);
-        setUserResults(usersFound);
+        if (requestId === searchRequestIdRef.current) {
+          setUserResults(usersFound);
+        }
       } else if (filter === 'all') {
         const [foundMedia, foundUsers] = await Promise.all([
           searchAllMedia(trimmed, 'all'),
           searchUsers(trimmed),
         ]);
-        setMediaResults(foundMedia);
-        setUserResults(foundUsers);
+        if (requestId === searchRequestIdRef.current) {
+          setMediaResults(foundMedia);
+          setUserResults(foundUsers);
+        }
       } else {
         const found = await searchAllMedia(trimmed, filter);
-        setMediaResults(found);
+        if (requestId === searchRequestIdRef.current) {
+          setMediaResults(found);
+        }
       }
     } catch (err) {
       console.error('Erro na pesquisa:', err);
     } finally {
-      setLoading(false);
+      if (requestId === searchRequestIdRef.current) {
+        setLoading(false);
+      }
     }
+  };
+
+  // Debounced search on query change
+  useEffect(() => {
+    if (debounceTimerRef.current) {
+      clearTimeout(debounceTimerRef.current);
+    }
+
+    const trimmed = query.trim();
+    if (!trimmed) {
+      if (hasSearched) {
+        executeSearch('', activeFilter);
+      }
+      return;
+    }
+
+    debounceTimerRef.current = setTimeout(() => {
+      executeSearch(trimmed, activeFilter);
+    }, 320);
+
+    return () => {
+      if (debounceTimerRef.current) {
+        clearTimeout(debounceTimerRef.current);
+      }
+    };
+  }, [query, activeFilter]);
+
+  const handleManualSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (debounceTimerRef.current) {
+      clearTimeout(debounceTimerRef.current);
+    }
+    executeSearch(query, activeFilter);
+  };
+
+  const handleClearQuery = () => {
+    setQuery('');
+    if (debounceTimerRef.current) {
+      clearTimeout(debounceTimerRef.current);
+    }
+    executeSearch('', activeFilter);
+  };
+
+  const handleSelectSuggestion = (suggestion: string) => {
+    setQuery(suggestion);
+    if (debounceTimerRef.current) {
+      clearTimeout(debounceTimerRef.current);
+    }
+    executeSearch(suggestion, activeFilter);
   };
 
   const onFilterChange = (filter: 'all' | 'movie' | 'series' | 'book' | 'users') => {
     setActiveFilter(filter);
-    handleSearch(query, filter);
+    if (debounceTimerRef.current) {
+      clearTimeout(debounceTimerRef.current);
+    }
+    executeSearch(query, filter);
   };
 
   const isUserFollowed = (target: UserProfile) => {
@@ -136,7 +227,7 @@ export const SearchView: React.FC<SearchViewProps> = ({
       return;
     }
     if (target.isAdmin || isAdminEmail(target.email)) {
-      return; // O Administrador é seguido automaticamente por todos
+      return;
     }
 
     try {
@@ -175,38 +266,78 @@ export const SearchView: React.FC<SearchViewProps> = ({
 
   return (
     <div className="search-container">
-      {/* Barra de busca */}
-      <form
-        onSubmit={(e) => {
-          e.preventDefault();
-          handleSearch(query, activeFilter);
-        }}
-      >
+      {/* Barra de busca com campo interativo e botão explícito */}
+      <form onSubmit={handleManualSubmit}>
         <div className="search-input-box">
-          <SearchIcon size={20} />
+          <div className="search-input-icon-left">
+            <SearchIcon size={18} />
+          </div>
           <input
             type="search"
             className="search-input"
             placeholder="Buscar filmes, séries, livros e membros..."
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') {
-                handleSearch(query, activeFilter);
-              }
-            }}
             aria-label="Campo de busca"
           />
+
+          <div className="search-input-right-actions">
+            {query.length > 0 && (
+              <button
+                type="button"
+                className="search-clear-btn"
+                onClick={handleClearQuery}
+                title="Limpar busca"
+                aria-label="Limpar busca"
+              >
+                <X size={15} />
+              </button>
+            )}
+            <button
+              type="submit"
+              className="search-submit-btn"
+              disabled={loading}
+              aria-label="Executar busca"
+            >
+              {loading ? (
+                <Loader2 size={15} className="animate-spin" />
+              ) : (
+                <>
+                  <SearchIcon size={14} />
+                  <span>Buscar</span>
+                </>
+              )}
+            </button>
+          </div>
         </div>
       </form>
 
-      {/* Chips de Filtro Sem termos TMDB e OpenLibrary */}
+      {/* Atalhos Rápidos de Sugestões de Busca */}
+      <div className="search-suggestions-bar" aria-label="Atalhos populares">
+        <span style={{ fontSize: '0.74rem', color: 'var(--text-muted)', fontWeight: 700, paddingLeft: '4px', whiteSpace: 'nowrap' }}>
+          Em alta:
+        </span>
+        {QUICK_SUGGESTIONS.map((item) => (
+          <button
+            key={item.label}
+            type="button"
+            className="search-suggestion-chip"
+            onClick={() => handleSelectSuggestion(item.label)}
+          >
+            <span>{item.icon}</span>
+            <span>{item.label}</span>
+          </button>
+        ))}
+      </div>
+
+      {/* Chips de Filtro Simétricos */}
       <div className="filter-chips">
         <button
           type="button"
           className={`filter-chip ${activeFilter === 'all' ? 'active' : ''}`}
           onClick={() => onFilterChange('all')}
         >
+          <Layers size={13} style={{ display: 'inline', marginRight: '5px' }} />
           Todos
         </button>
         <button
@@ -214,7 +345,7 @@ export const SearchView: React.FC<SearchViewProps> = ({
           className={`filter-chip ${activeFilter === 'movie' ? 'active' : ''}`}
           onClick={() => onFilterChange('movie')}
         >
-          <Film size={13} style={{ display: 'inline', marginRight: '4px' }} />
+          <Film size={13} style={{ display: 'inline', marginRight: '5px' }} />
           Filmes
         </button>
         <button
@@ -222,7 +353,7 @@ export const SearchView: React.FC<SearchViewProps> = ({
           className={`filter-chip ${activeFilter === 'series' ? 'active' : ''}`}
           onClick={() => onFilterChange('series')}
         >
-          <Tv size={13} style={{ display: 'inline', marginRight: '4px' }} />
+          <Tv size={13} style={{ display: 'inline', marginRight: '5px' }} />
           Séries
         </button>
         <button
@@ -230,28 +361,24 @@ export const SearchView: React.FC<SearchViewProps> = ({
           className={`filter-chip ${activeFilter === 'book' ? 'active' : ''}`}
           onClick={() => onFilterChange('book')}
         >
-          <BookOpen size={13} style={{ display: 'inline', marginRight: '4px' }} />
+          <BookOpen size={13} style={{ display: 'inline', marginRight: '5px' }} />
           Livros
         </button>
         <button
           type="button"
           className={`filter-chip ${activeFilter === 'users' ? 'active' : ''}`}
           onClick={() => onFilterChange('users')}
-          style={{
-            borderColor: activeFilter === 'users' ? 'var(--accent-pink)' : 'var(--border-color)',
-            fontWeight: 700,
-          }}
         >
-          <Users size={14} style={{ display: 'inline', marginRight: '4px' }} />
-          Membros para Seguir
+          <Users size={13} style={{ display: 'inline', marginRight: '5px' }} />
+          Membros
         </button>
       </div>
 
       {/* Resultados de Membros quando em aba 'users' */}
       {activeFilter === 'users' ? (
         <div>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '6px', marginBottom: '14px' }}>
-            <h2 style={{ fontSize: '1rem', fontWeight: 800 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '4px', marginBottom: '14px' }}>
+            <h2 style={{ fontSize: '0.96rem', fontWeight: 800 }}>
               {hasSearched ? `Membros encontrados para "${query}"` : 'Membros da Comunidade'}
             </h2>
             <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
@@ -454,20 +581,57 @@ export const SearchView: React.FC<SearchViewProps> = ({
           )}
 
           {/* Título da seção */}
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '6px', marginBottom: '14px' }}>
-            <h2 style={{ fontSize: '1rem', fontWeight: 800 }}>
-              {hasSearched ? `Obras para "${query}"` : 'Títulos em Destaque'}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '4px', marginBottom: '14px' }}>
+            <h2 style={{ fontSize: '0.96rem', fontWeight: 800 }}>
+              {hasSearched ? `Resultados para "${query}"` : 'Títulos em Destaque'}
             </h2>
             <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
               {mediaResults.length} títulos
             </span>
           </div>
 
-          {/* Grade de Mídias */}
+          {/* Grade de Mídias com Placeholders durante Loading */}
           {loading ? (
-            <div style={{ textAlign: 'center', padding: '50px 20px', color: 'var(--text-muted)' }}>
-              <Loader2 size={32} className="animate-spin" style={{ margin: '0 auto 12px' }} />
-              Buscando títulos...
+            <div className="media-grid">
+              {[1, 2, 3, 4, 5, 6].map((n) => (
+                <div
+                  key={n}
+                  style={{
+                    background: 'var(--bg-surface)',
+                    border: '1px solid var(--border-color)',
+                    borderRadius: 'var(--radius-md)',
+                    overflow: 'hidden',
+                  }}
+                >
+                  <div
+                    style={{
+                      aspectRatio: '2/3',
+                      background: 'var(--bg-subtle)',
+                      animation: 'pulse 1.5s infinite ease-in-out',
+                    }}
+                  />
+                  <div style={{ padding: '8px' }}>
+                    <div
+                      style={{
+                        height: '14px',
+                        background: 'var(--bg-subtle)',
+                        borderRadius: '4px',
+                        marginBottom: '6px',
+                        animation: 'pulse 1.5s infinite ease-in-out',
+                      }}
+                    />
+                    <div
+                      style={{
+                        height: '10px',
+                        width: '60%',
+                        background: 'var(--bg-subtle)',
+                        borderRadius: '4px',
+                        animation: 'pulse 1.5s infinite ease-in-out',
+                      }}
+                    />
+                  </div>
+                </div>
+              ))}
             </div>
           ) : mediaResults.length > 0 ? (
             <div className="media-grid">
@@ -486,6 +650,14 @@ export const SearchView: React.FC<SearchViewProps> = ({
                       }
                       alt={item.title}
                       loading="lazy"
+                      onError={(e) => {
+                        const target = e.currentTarget;
+                        if (!target.dataset.errored) {
+                          target.dataset.errored = 'true';
+                          target.src =
+                            'https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?w=300&h=450&fit=crop';
+                        }
+                      }}
                     />
                   </div>
                   <div className="grid-item-info">
@@ -507,10 +679,51 @@ export const SearchView: React.FC<SearchViewProps> = ({
                 textAlign: 'center',
               }}
             >
-              <p style={{ fontWeight: 700, marginBottom: '6px' }}>Nenhum título encontrado</p>
-              <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
-                Tente buscar com outro termo ou selecione a categoria "Todos" ou "Membros".
+              <p style={{ fontWeight: 700, marginBottom: '6px', fontSize: '1rem' }}>
+                Nenhum resultado encontrado para "{query}"
               </p>
+              <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '16px' }}>
+                {activeFilter !== 'all'
+                  ? `Não localizamos resultados em ${
+                      activeFilter === 'movie' ? 'Filmes' : activeFilter === 'series' ? 'Séries' : 'Livros'
+                    }. Tente buscar em todas as categorias.`
+                  : 'Verifique a ortografia ou experimente um dos termos populares abaixo.'}
+              </p>
+
+              {activeFilter !== 'all' && (
+                <button
+                  type="button"
+                  className="btn-primary"
+                  onClick={() => onFilterChange('all')}
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    padding: '8px 18px',
+                    borderRadius: 'var(--radius-full)',
+                    fontSize: '0.85rem',
+                    fontWeight: 700,
+                    marginBottom: '18px',
+                  }}
+                >
+                  <Layers size={14} />
+                  <span>Buscar em Todas as Categorias</span>
+                </button>
+              )}
+
+              <div style={{ display: 'flex', gap: '8px', justifyContent: 'center', flexWrap: 'wrap' }}>
+                {QUICK_SUGGESTIONS.slice(0, 4).map((s) => (
+                  <button
+                    key={s.label}
+                    type="button"
+                    className="search-suggestion-chip"
+                    onClick={() => handleSelectSuggestion(s.label)}
+                  >
+                    <span>{s.icon}</span>
+                    <span>{s.label}</span>
+                  </button>
+                ))}
+              </div>
             </div>
           )}
         </div>

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { X, Star, Film, Tv, BookOpen, Search, Loader2, AlertTriangle } from 'lucide-react';
 import { MediaType, MediaItem } from '../types/cinebook';
 import { useAuth } from '../context/AuthContext';
@@ -35,21 +35,39 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
 
-  const handleSearchMedia = async (q: string) => {
+  const debounceTimerRef = useRef<any>(null);
+  const searchRequestIdRef = useRef<number>(0);
+
+  const handleSearchMedia = (q: string) => {
     setSearchQuery(q);
-    if (!q.trim()) {
+    if (debounceTimerRef.current) {
+      clearTimeout(debounceTimerRef.current);
+    }
+
+    const trimmed = q.trim();
+    if (!trimmed) {
       setSearchResults([]);
+      setIsSearching(false);
       return;
     }
+
     setIsSearching(true);
-    try {
-      const results = await searchAllMedia(q);
-      setSearchResults(results.slice(0, 6));
-    } catch (err) {
-      console.error('Erro ao buscar mídias para resenha:', err);
-    } finally {
-      setIsSearching(false);
-    }
+    const reqId = ++searchRequestIdRef.current;
+
+    debounceTimerRef.current = setTimeout(async () => {
+      try {
+        const results = await searchAllMedia(trimmed);
+        if (reqId === searchRequestIdRef.current) {
+          setSearchResults(results.slice(0, 8));
+        }
+      } catch (err) {
+        console.error('Erro ao buscar mídias para resenha:', err);
+      } finally {
+        if (reqId === searchRequestIdRef.current) {
+          setIsSearching(false);
+        }
+      }
+    }, 280);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {

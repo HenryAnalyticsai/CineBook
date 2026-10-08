@@ -33,14 +33,14 @@ export const BottomNav: React.FC<BottomNavProps> = ({ currentTab, onSelectTab })
 
       <button
         type="button"
-        className="bottom-nav-item"
+        className="bottom-nav-item bottom-nav-create"
         onClick={() => onSelectTab('create')}
         aria-label="Publicar Nova Resenha"
       >
         <div className="nav-create-pill">
-          <PlusCircle size={24} />
+          <PlusCircle size={22} />
         </div>
-        <span style={{ marginTop: '2px' }}>Publicar</span>
+        <span>Publicar</span>
       </button>
 
       <button

@@ -346,7 +346,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
 
         {/* Botões de Ação do Perfil */}
         {isOwnProfile ? (
-          <div style={{ display: 'flex', gap: '8px' }}>
+          <div className="profile-actions-row">
             <button
               type="button"
               className="btn-secondary profile-action-btn"
@@ -359,11 +359,10 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
               type="button"
               className="btn-outline-danger profile-action-btn"
               onClick={logout}
-              style={{ maxWidth: '120px' }}
               title="Sair da conta"
             >
               <LogOut size={16} />
-              <span>Sair</span>
+              <span>Sair da Conta</span>
             </button>
           </div>
         ) : isProfileAdm ? (
