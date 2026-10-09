@@ -4,12 +4,25 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 
 dotenv.config();
+dotenv.config({ path: path.resolve(process.cwd(), '.env.local') });
+dotenv.config({ path: path.resolve(process.cwd(), '.env.production') });
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const app = express();
 const PORT = Number(process.env.PORT) || 3000;
+
+// Habilitar CORS para permitir uso do webapp em qualquer ambiente (PWA, mobile, preview, host externo)
+app.use((req, res, next) => {
+  res.header('Access-Control-Allow-Origin', '*');
+  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+  res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
+  if (req.method === 'OPTIONS') {
+    return res.sendStatus(200);
+  }
+  next();
+});
 
 app.use(express.json());
 
@@ -147,11 +160,23 @@ const SAMPLE_MEDIA = [
   }
 ];
 
+const FALLBACK_TMDB_API_KEY = '5c98fcb0fe9f98d3a981009fc882faf6';
+
+function getTmdbAuth() {
+  const token = (process.env.TMDB_READ_ACCESS_TOKEN || process.env.VITE_TMDB_READ_ACCESS_TOKEN)?.trim();
+  const apiKey = (
+    process.env.TMDB_API_KEY ||
+    process.env.VITE_TMDB_API_KEY ||
+    (token ? '' : FALLBACK_TMDB_API_KEY)
+  )?.trim();
+  return { token, apiKey };
+}
+
 function getTmdbHeaders(): Record<string, string> {
-  const token = process.env.TMDB_READ_ACCESS_TOKEN;
+  const { token } = getTmdbAuth();
   if (token) {
     return {
-      Authorization: `Bearer ${token.trim()}`,
+      Authorization: `Bearer ${token}`,
       'Content-Type': 'application/json',
       Accept: 'application/json',
     };
@@ -369,8 +394,7 @@ app.get('/api/tmdb/search', async (req: Request, res: Response) => {
     return res.json({ results: [], total_results: 0 });
   }
 
-  const token = process.env.TMDB_READ_ACCESS_TOKEN;
-  const apiKey = process.env.TMDB_API_KEY;
+  const { token, apiKey } = getTmdbAuth();
   const normQuery = normalizeText(query);
 
   const fallbackFiltered = SAMPLE_MEDIA.filter(
@@ -379,15 +403,6 @@ app.get('/api/tmdb/search', async (req: Request, res: Response) => {
       normalizeText(item.originalTitle).includes(normQuery)
   );
 
-  if (!token && !apiKey) {
-    return res.json({
-      results: fallbackFiltered,
-      total_results: fallbackFiltered.length,
-      isFallback: true,
-      notice: 'Adicione TMDB_READ_ACCESS_TOKEN em .env.local para busca completa no catálogo TMDB',
-    });
-  }
-
   try {
     let url = `https://api.themoviedb.org/3/search/multi?query=${encodeURIComponent(query)}&language=pt-BR&page=${page}&include_adult=false`;
     if (!token && apiKey) {
@@ -395,7 +410,7 @@ app.get('/api/tmdb/search', async (req: Request, res: Response) => {
     }
 
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 5000);
+    const timeoutId = setTimeout(() => controller.abort(), 7000);
 
     const response = await fetch(url, { headers: getTmdbHeaders(), signal: controller.signal });
     clearTimeout(timeoutId);
@@ -511,12 +526,7 @@ app.get('/api/books/search', async (req: Request, res: Response) => {
 
 // TMDB Trending / Destaques
 app.get('/api/tmdb/trending', async (req: Request, res: Response) => {
-  const token = process.env.TMDB_READ_ACCESS_TOKEN;
-  const apiKey = process.env.TMDB_API_KEY;
-
-  if (!token && !apiKey) {
-    return res.json({ results: SAMPLE_MEDIA, isFallback: true });
-  }
+  const { token, apiKey } = getTmdbAuth();
 
   try {
     let url = 'https://api.themoviedb.org/3/trending/all/week?language=pt-BR';
@@ -525,7 +535,7 @@ app.get('/api/tmdb/trending', async (req: Request, res: Response) => {
     }
 
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 5000);
+    const timeoutId = setTimeout(() => controller.abort(), 7000);
 
     const response = await fetch(url, {
       headers: getTmdbHeaders(),
@@ -561,12 +571,13 @@ app.get('/api/tmdb/trending', async (req: Request, res: Response) => {
 
 // TMDB Status check route
 app.get('/api/tmdb/status', (req: Request, res: Response) => {
-  const hasToken = Boolean(process.env.TMDB_READ_ACCESS_TOKEN || process.env.TMDB_API_KEY);
+  const { token, apiKey } = getTmdbAuth();
+  const configured = Boolean(token || apiKey);
   res.json({
-    configured: hasToken,
-    message: hasToken
+    configured,
+    message: configured
       ? 'Chave do TMDB ativa no servidor com segurança.'
-      : 'Modo demonstração com filmes e séries populares em pt-BR ativo. Adicione TMDB_READ_ACCESS_TOKEN em .env.local para catálogo completo.',
+      : 'Modo demonstração com filmes e séries populares em pt-BR ativo.',
   });
 });
 

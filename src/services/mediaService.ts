@@ -78,6 +78,99 @@ function normalizeText(text?: string | null): string {
     .trim();
 }
 
+const FALLBACK_CLIENT_TMDB_KEY = '5c98fcb0fe9f98d3a981009fc882faf6';
+
+function getClientTmdbCredentials() {
+  const token = (
+    (typeof import.meta !== 'undefined' && import.meta.env?.VITE_TMDB_READ_ACCESS_TOKEN) as string | undefined
+  )?.trim();
+  const apiKey = (
+    (typeof import.meta !== 'undefined' && import.meta.env?.VITE_TMDB_API_KEY as string | undefined) ||
+    FALLBACK_CLIENT_TMDB_KEY
+  ).trim();
+  return { token, apiKey };
+}
+
+async function fetchDirectTmdbSearch(query: string): Promise<MediaItem[]> {
+  const { token, apiKey } = getClientTmdbCredentials();
+  let url = `https://api.themoviedb.org/3/search/multi?query=${encodeURIComponent(query)}&language=pt-BR&page=1&include_adult=false`;
+  if (!token && apiKey) {
+    url += `&api_key=${apiKey}`;
+  }
+
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+    Accept: 'application/json',
+  };
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 6500);
+  try {
+    const res = await fetch(url, { headers, signal: controller.signal });
+    clearTimeout(timeoutId);
+    if (!res.ok) return [];
+    const data = await res.json();
+    return (data.results || [])
+      .filter((item: any) => item.media_type === 'movie' || item.media_type === 'tv')
+      .map((item: any) => ({
+        id: String(item.id),
+        type: (item.media_type === 'tv' ? 'series' : 'movie') as 'movie' | 'series',
+        title: item.title || item.name || '',
+        originalTitle: item.original_title || item.original_name || '',
+        poster: item.poster_path ? `https://image.tmdb.org/t/p/w500${item.poster_path}` : null,
+        year: (item.release_date || item.first_air_date || '').substring(0, 4),
+        overview: item.overview || '',
+        voteAverage: item.vote_average || 0,
+      }));
+  } catch (err) {
+    clearTimeout(timeoutId);
+    return [];
+  }
+}
+
+async function fetchDirectTmdbTrending(): Promise<MediaItem[]> {
+  const { token, apiKey } = getClientTmdbCredentials();
+  let url = 'https://api.themoviedb.org/3/trending/all/week?language=pt-BR';
+  if (!token && apiKey) {
+    url += `&api_key=${apiKey}`;
+  }
+
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+    Accept: 'application/json',
+  };
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 6500);
+  try {
+    const res = await fetch(url, { headers, signal: controller.signal });
+    clearTimeout(timeoutId);
+    if (!res.ok) return [];
+    const data = await res.json();
+    return (data.results || [])
+      .filter((item: any) => item.media_type === 'movie' || item.media_type === 'tv')
+      .map((item: any) => ({
+        id: String(item.id),
+        type: (item.media_type === 'tv' ? 'series' : 'movie') as 'movie' | 'series',
+        title: item.title || item.name || '',
+        originalTitle: item.original_title || item.original_name || '',
+        poster: item.poster_path ? `https://image.tmdb.org/t/p/w500${item.poster_path}` : null,
+        year: (item.release_date || item.first_air_date || '').substring(0, 4),
+        overview: item.overview || '',
+        voteAverage: item.vote_average || 0,
+      }));
+  } catch (err) {
+    clearTimeout(timeoutId);
+    return [];
+  }
+}
+
 export async function searchOpenLibraryBooks(query: string): Promise<MediaItem[]> {
   const normQuery = normalizeText(query);
   const localMatches = POPULAR_BOOKS.filter(
@@ -87,30 +180,58 @@ export async function searchOpenLibraryBooks(query: string): Promise<MediaItem[]
       (b.author && normalizeText(b.author).includes(normQuery))
   );
 
+  let fetchedDocs: any[] = [];
   try {
     const encoded = encodeURIComponent(query);
     const res = await fetch(`/api/books/search?query=${encoded}`);
-    if (!res.ok) return localMatches;
-
-    const data = await res.json();
-    const results = Array.isArray(data.results) ? data.results : [];
-
-    if (results.length === 0) return localMatches;
-
-    // Deduplicate by title
-    const seen = new Set<string>();
-    const combined = [...results, ...localMatches].filter((b) => {
-      const normTitle = normalizeText(b.title);
-      if (seen.has(normTitle)) return false;
-      seen.add(normTitle);
-      return true;
-    });
-
-    return combined;
+    if (res.ok) {
+      const data = await res.json();
+      if (Array.isArray(data.results) && data.results.length > 0) {
+        return data.results;
+      }
+    } else {
+      // Direct client fetch fallback para Open Library caso a rota de servidor não exista (deploy estático)
+      const olRes = await fetch(`https://openlibrary.org/search.json?q=${encoded}&limit=12`);
+      if (olRes.ok) {
+        const olData = await olRes.json();
+        fetchedDocs = (olData.docs || []).map((doc: any) => {
+          const coverId = doc.cover_i;
+          const poster = coverId
+            ? `https://covers.openlibrary.org/b/id/${coverId}-L.jpg`
+            : doc.isbn?.[0]
+            ? `https://covers.openlibrary.org/b/isbn/${doc.isbn[0]}-L.jpg`
+            : null;
+          const author = Array.isArray(doc.author_name)
+            ? doc.author_name.join(', ')
+            : doc.author_name || 'Autor Desconhecido';
+          return {
+            id: doc.key ? doc.key.replace('/works/', '') : `ol_${Math.random()}`,
+            type: 'book' as const,
+            title: doc.title,
+            originalTitle: doc.title,
+            poster,
+            year: doc.first_publish_year ? String(doc.first_publish_year) : '',
+            author,
+            overview: doc.first_sentence ? (Array.isArray(doc.first_sentence) ? doc.first_sentence.join(' ') : doc.first_sentence) : `Livro de ${author}.`,
+            voteAverage: 4.6,
+          };
+        });
+      }
+    }
   } catch (err) {
     console.warn('Erro ao buscar livros na API, usando livros locais:', err);
-    return localMatches;
   }
+
+  // Deduplicate by title
+  const seen = new Set<string>();
+  const combined = [...fetchedDocs, ...localMatches].filter((b) => {
+    const normTitle = normalizeText(b.title);
+    if (seen.has(normTitle)) return false;
+    seen.add(normTitle);
+    return true;
+  });
+
+  return combined;
 }
 
 export async function searchTmdbMedia(query: string): Promise<MediaItem[]> {
@@ -123,23 +244,38 @@ export async function searchTmdbMedia(query: string): Promise<MediaItem[]> {
 
   try {
     const res = await fetch(`/api/tmdb/search?query=${encodeURIComponent(query)}`);
-    if (!res.ok) return localFallbackMatches;
-    const data = await res.json();
-    const results = (data.results || []).map((item: any) => ({
-      id: String(item.id),
-      type: (item.type === 'tv' || item.type === 'series' ? 'series' : 'movie') as 'movie' | 'series',
-      title: item.title,
-      originalTitle: item.originalTitle,
-      poster: item.poster,
-      year: item.year,
-      overview: item.overview,
-      voteAverage: item.voteAverage,
-    }));
+    if (res.ok) {
+      const data = await res.json();
+      if (!data.isFallback && Array.isArray(data.results) && data.results.length > 0) {
+        return data.results.map((item: any) => ({
+          id: String(item.id),
+          type: (item.type === 'tv' || item.type === 'series' ? 'series' : 'movie') as 'movie' | 'series',
+          title: item.title,
+          originalTitle: item.originalTitle,
+          poster: item.poster,
+          year: item.year,
+          overview: item.overview,
+          voteAverage: item.voteAverage,
+        }));
+      }
+    }
 
-    if (results.length === 0) return localFallbackMatches;
-    return results;
+    // Se o backend retornou fallback ou se está em deploy estático fora do IA Studio (404 no /api/tmdb),
+    // busca diretamente na API do TMDB com CORS
+    const directResults = await fetchDirectTmdbSearch(query);
+    if (directResults.length > 0) {
+      return directResults;
+    }
+
+    return localFallbackMatches;
   } catch (err) {
-    console.warn('Erro ao buscar filmes/séries no TMDB, usando fallback:', err);
+    console.warn('Erro ao conectar via proxy, tentando TMDB direto:', err);
+    try {
+      const directResults = await fetchDirectTmdbSearch(query);
+      if (directResults.length > 0) return directResults;
+    } catch {
+      // fallback
+    }
     return localFallbackMatches;
   }
 }
@@ -281,37 +417,47 @@ export async function getTrendingTmdb(): Promise<MediaItem[]> {
     const res = await fetch('/api/tmdb/trending', { signal: controller.signal });
     clearTimeout(timeoutId);
 
-    if (!res.ok) {
-      console.warn('API /api/tmdb/trending não respondeu 200, usando catálogo em alta');
-      return POPULAR_TRENDING_FALLBACK;
+    if (res.ok) {
+      const data = await res.json();
+      if (!data.isFallback && Array.isArray(data.results) && data.results.length > 0) {
+        const mapped: MediaItem[] = data.results.map((item: any) => ({
+          id: String(item.id),
+          type: (item.type === 'series' || item.type === 'tv' ? 'series' : 'movie') as 'movie' | 'series',
+          title: item.title || item.name || 'Título Indisponível',
+          originalTitle: item.originalTitle || item.original_name || item.title || '',
+          poster: item.poster || (item.poster_path ? `https://image.tmdb.org/t/p/w500${item.poster_path}` : null),
+          year: item.year ? String(item.year) : (item.release_date || item.first_air_date || '').substring(0, 4),
+          overview: item.overview || '',
+          voteAverage: typeof item.voteAverage === 'number' ? item.voteAverage : (item.vote_average || 0),
+        }));
+
+        if (mapped.length > 0) {
+          cachedTrendingMedia = mapped;
+          return mapped;
+        }
+      }
     }
 
-    const data = await res.json();
-    const rawList = Array.isArray(data.results) ? data.results : Array.isArray(data) ? data : [];
-
-    if (rawList.length === 0) {
-      return POPULAR_TRENDING_FALLBACK;
-    }
-
-    const mapped: MediaItem[] = rawList.map((item: any) => ({
-      id: String(item.id),
-      type: (item.type === 'series' || item.type === 'tv' ? 'series' : 'movie') as 'movie' | 'series',
-      title: item.title || item.name || 'Título Indisponível',
-      originalTitle: item.originalTitle || item.original_name || item.title || '',
-      poster: item.poster || (item.poster_path ? `https://image.tmdb.org/t/p/w500${item.poster_path}` : null),
-      year: item.year ? String(item.year) : (item.release_date || item.first_air_date || '').substring(0, 4),
-      overview: item.overview || '',
-      voteAverage: typeof item.voteAverage === 'number' ? item.voteAverage : (item.vote_average || 0),
-    }));
-
-    if (mapped.length > 0) {
-      cachedTrendingMedia = mapped;
-      return mapped;
+    // Se o backend retornou fallback ou deploy estático fora do IA Studio,
+    // busca diretamente da API do TMDB
+    const directTrending = await fetchDirectTmdbTrending();
+    if (directTrending.length > 0) {
+      cachedTrendingMedia = directTrending;
+      return directTrending;
     }
 
     return POPULAR_TRENDING_FALLBACK;
   } catch (err) {
-    console.error('Erro ao buscar trending TMDB, usando títulos populares:', err);
+    console.warn('Erro ao conectar via proxy no trending, tentando TMDB direto:', err);
+    try {
+      const directTrending = await fetchDirectTmdbTrending();
+      if (directTrending.length > 0) {
+        cachedTrendingMedia = directTrending;
+        return directTrending;
+      }
+    } catch {
+      // fallback
+    }
     return POPULAR_TRENDING_FALLBACK;
   }
 }
