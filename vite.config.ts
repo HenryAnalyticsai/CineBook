@@ -7,6 +7,74 @@ import {VitePWA} from 'vite-plugin-pwa';
 export default defineConfig(() => {
   return {
     plugins: [
+      {
+        name: 'vite-ws-silent-shim',
+        transformIndexHtml: {
+          order: 'pre',
+          handler() {
+            return [
+              {
+                tag: 'script',
+                injectTo: 'head-prepend',
+                children: `(function() {
+  if (typeof window === 'undefined') return;
+  var RealWS = window.WebSocket;
+  if (!RealWS) return;
+  window.WebSocket = function(url, protocols) {
+    if (protocols === 'vite-hmr' || (typeof url === 'string' && (url.indexOf('token=') !== -1 || url.indexOf('vite') !== -1))) {
+      var listeners = {};
+      var fakeWs = {
+        readyState: 1,
+        CONNECTING: 0,
+        OPEN: 1,
+        CLOSING: 2,
+        CLOSED: 3,
+        binaryType: 'blob',
+        extensions: '',
+        protocol: 'vite-hmr',
+        url: url,
+        bufferedAmount: 0,
+        onopen: null,
+        onclose: null,
+        onerror: null,
+        onmessage: null,
+        addEventListener: function(event, fn) {
+          listeners[event] = listeners[event] || [];
+          listeners[event].push(fn);
+          if (event === 'open') {
+            setTimeout(function() {
+              if (typeof fakeWs.onopen === 'function') fakeWs.onopen({ type: 'open' });
+              fn({ type: 'open' });
+            }, 0);
+          }
+        },
+        removeEventListener: function(event, fn) {
+          if (!listeners[event]) return;
+          listeners[event] = listeners[event].filter(function(f) { return f !== fn; });
+        },
+        dispatchEvent: function() { return true; },
+        send: function() {},
+        close: function() {
+          fakeWs.readyState = 3;
+          if (typeof fakeWs.onclose === 'function') fakeWs.onclose({ wasClean: true, code: 1000, reason: '' });
+          (listeners['close'] || []).forEach(function(fn) { fn({ wasClean: true, code: 1000, reason: '' }); });
+        }
+      };
+      return fakeWs;
+    }
+    return new RealWS(url, protocols);
+  };
+  window.WebSocket.prototype = RealWS.prototype;
+  window.WebSocket.CONNECTING = 0;
+  window.WebSocket.OPEN = 1;
+  window.WebSocket.CLOSING = 2;
+  window.WebSocket.CLOSED = 3;
+})();`,
+              },
+            ];
+          },
+        },
+      },
       react(),
       tailwindcss(),
       VitePWA({
