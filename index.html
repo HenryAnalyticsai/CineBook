@@ -21,6 +21,22 @@
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Playfair+Display:ital,wght@0,600;0,700;1,600&display=swap" rel="stylesheet">
   </head>
   <body>
+    <script>
+      // Suprime avisos benignos de WebSocket em ambiente de container/proxy iframe
+      window.addEventListener('unhandledrejection', function(event) {
+        var reason = event.reason;
+        var msg = reason && (reason.message || String(reason));
+        if (typeof msg === 'string' && (msg.indexOf('WebSocket') !== -1 || msg.indexOf('ws:') !== -1)) {
+          event.preventDefault();
+        }
+      });
+      window.addEventListener('error', function(event) {
+        var msg = event.message || '';
+        if (typeof msg === 'string' && (msg.indexOf('WebSocket') !== -1 || msg.indexOf('ws:') !== -1)) {
+          event.preventDefault();
+        }
+      });
+    </script>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>

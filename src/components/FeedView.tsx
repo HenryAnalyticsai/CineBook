@@ -399,12 +399,7 @@ export const FeedView: React.FC<FeedViewProps> = ({
           }}
         >
           <Users size={16} />
-          <span>Seguindo & Conexões</span>
-          {user && (followerUids.size > 0 || followingUids.size > 0) && (
-            <span className="feed-tab-badge">
-              {isCurrentUserAdmin ? 'ADM' : `${followerUids.size}`}
-            </span>
-          )}
+          <span>Conexões</span>
         </button>
       </div>
 
