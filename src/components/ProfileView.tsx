@@ -13,6 +13,7 @@ import {
   ShieldCheck,
   Users,
   Download,
+  Film,
 } from 'lucide-react';
 import {
   UserProfile,
@@ -44,6 +45,7 @@ interface ProfileViewProps {
   onViewAuthorProfile: (authorId: string) => void;
   onOpenAuth: () => void;
   onOpenInstall?: () => void;
+  onOpenWatchedWithFollowers?: (companionUid?: string) => void;
 }
 
 export const ProfileView: React.FC<ProfileViewProps> = ({
@@ -53,6 +55,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
   onViewAuthorProfile,
   onOpenAuth,
   onOpenInstall,
+  onOpenWatchedWithFollowers,
 }) => {
   const { user, profile: myProfile, logout, updateProfileBio } = useAuth();
   const currentUid = targetUserId || user?.uid;
@@ -359,6 +362,22 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
               <Edit2 size={16} />
               <span>Editar Bio</span>
             </button>
+            {onOpenWatchedWithFollowers && (
+              <button
+                type="button"
+                className="btn-primary profile-action-btn"
+                onClick={() => onOpenWatchedWithFollowers()}
+                style={{
+                  background: 'linear-gradient(135deg, #f43f5e 0%, #be123c 100%)',
+                  color: '#fff',
+                  border: 'none',
+                  fontWeight: 700,
+                }}
+              >
+                <Users size={16} />
+                <span>Filmes com Seguidores</span>
+              </button>
+            )}
             <button
               type="button"
               className="btn-outline-danger profile-action-btn"
@@ -366,7 +385,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
               title="Sair da conta"
             >
               <LogOut size={16} />
-              <span>Sair da Conta</span>
+              <span>Sair</span>
             </button>
           </div>
           {onOpenInstall && (
@@ -407,23 +426,44 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
             <span>Seguindo (ADM Oficial)</span>
           </button>
         ) : (
-          <button
-            type="button"
-            className={`profile-action-btn ${isFollowing ? 'btn-secondary' : 'btn-primary'}`}
-            onClick={handleToggleFollow}
-          >
-            {isFollowing ? (
-              <>
-                <UserCheck size={18} />
-                <span>Seguindo</span>
-              </>
-            ) : (
-              <>
-                <UserPlus size={18} />
-                <span>Seguir</span>
-              </>
+          <div className="profile-actions-row">
+            <button
+              type="button"
+              className={`profile-action-btn ${isFollowing ? 'btn-secondary' : 'btn-primary'}`}
+              onClick={handleToggleFollow}
+            >
+              {isFollowing ? (
+                <>
+                  <UserCheck size={18} />
+                  <span>Seguindo</span>
+                </>
+              ) : (
+                <>
+                  <UserPlus size={18} />
+                  <span>Seguir</span>
+                </>
+              )}
+            </button>
+
+            {onOpenWatchedWithFollowers && (
+              <button
+                type="button"
+                className="btn-secondary profile-action-btn"
+                onClick={() => onOpenWatchedWithFollowers(currentUid)}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  color: 'var(--accent-pink)',
+                  borderColor: 'var(--accent-pink)',
+                  fontWeight: 700,
+                }}
+              >
+                <Film size={16} />
+                <span>Filmes em Comum</span>
+              </button>
             )}
-          </button>
+          </div>
         )}
       </section>
 

@@ -352,6 +352,27 @@ export const PostCard: React.FC<PostCardProps> = ({
             <p className="review-text">{post.text}</p>
           </div>
         )}
+
+        {post.watchedWith && post.watchedWith.length > 0 && (
+          <div
+            className="post-watched-with-tag"
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px',
+              fontSize: '0.78rem',
+              color: 'var(--accent-pink)',
+              background: 'rgba(225, 29, 72, 0.08)',
+              padding: '4px 10px',
+              borderRadius: 'var(--radius-full)',
+              marginTop: '8px',
+              fontWeight: 600,
+            }}
+          >
+            <Users size={13} />
+            <span>Assistido com {post.watchedWith.map((w) => w.name.split(' ')[0]).join(', ')}</span>
+          </div>
+        )}
       </div>
     </article>
   );

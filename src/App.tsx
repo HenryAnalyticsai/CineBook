@@ -12,6 +12,7 @@ import { AuthModal } from './components/AuthModal';
 import { InstallAppModal } from './components/InstallAppModal';
 import { InstallBanner } from './components/InstallBanner';
 import { TmdbFooter } from './components/TmdbFooter';
+import { WatchedWithFollowersModal } from './components/WatchedWithFollowersModal';
 import { MediaType } from './types/cinebook';
 
 function CinebookApp() {
@@ -27,6 +28,8 @@ function CinebookApp() {
   const [createInitialMedia, setCreateInitialMedia] = useState<any | null>(null);
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [showInstallModal, setShowInstallModal] = useState(false);
+  const [showWatchedFollowersModal, setShowWatchedFollowersModal] = useState(false);
+  const [watchedFollowersCompanionUid, setWatchedFollowersCompanionUid] = useState<string | null>(null);
 
   // Dark/Light Theme
   const [theme, setTheme] = useState<'auto' | 'dark' | 'light'>('auto');
@@ -90,14 +93,26 @@ function CinebookApp() {
     setShowCreateModal(true);
   };
 
+  const handleOpenWatchedWithFollowers = (companionUid?: string) => {
+    if (!user) {
+      setShowAuthModal(true);
+      return;
+    }
+    setWatchedFollowersCompanionUid(companionUid || null);
+    setShowWatchedFollowersModal(true);
+  };
+
   return (
     <div className="app-wrapper">
-      {/* Header Fixo */}
+      {/* Header Fixo e Responsivo */}
       <Header
         theme={theme}
         onToggleTheme={handleToggleTheme}
         onOpenAuth={() => setShowAuthModal(true)}
         onOpenInstall={() => setShowInstallModal(true)}
+        onOpenWatchedWithFollowers={() => handleOpenWatchedWithFollowers()}
+        currentTab={currentTab}
+        onSelectTab={handleSelectTab}
         onGoToProfile={() => {
           setViewingProfileUid(null);
           setCurrentTab('profile');
@@ -135,6 +150,7 @@ function CinebookApp() {
             onWriteReview={handleWriteReviewForMedia}
             onGoToSearch={() => setCurrentTab('search')}
             onOpenAuth={() => setShowAuthModal(true)}
+            onOpenWatchedWithFollowers={() => handleOpenWatchedWithFollowers()}
           />
         )}
 
@@ -149,6 +165,7 @@ function CinebookApp() {
             onViewAuthorProfile={handleViewAuthorProfile}
             onOpenAuth={() => setShowAuthModal(true)}
             onOpenInstall={() => setShowInstallModal(true)}
+            onOpenWatchedWithFollowers={handleOpenWatchedWithFollowers}
           />
         )}
       </main>
@@ -161,6 +178,20 @@ function CinebookApp() {
 
       {/* Navegação Inferior (Mobile First) */}
       <BottomNav currentTab={currentTab} onSelectTab={handleSelectTab} />
+
+      {/* Modal de Filmes com Seguidores (Sintonia & Co-Watching) */}
+      {showWatchedFollowersModal && (
+        <WatchedWithFollowersModal
+          initialFollowerUid={watchedFollowersCompanionUid}
+          onClose={() => {
+            setShowWatchedFollowersModal(false);
+            setWatchedFollowersCompanionUid(null);
+          }}
+          onOpenMediaModal={(media) => setSelectedMedia(media)}
+          onOpenAuth={() => setShowAuthModal(true)}
+          onViewUserProfile={handleViewAuthorProfile}
+        />
+      )}
 
       {/* Modal de Detalhes da Obra (Salvar na Lista / Resenhar) */}
       {selectedMedia && (

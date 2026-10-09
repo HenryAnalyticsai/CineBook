@@ -1,8 +1,8 @@
-import React, { useState, useRef } from 'react';
-import { X, Star, Film, Tv, BookOpen, Search, Loader2, AlertTriangle } from 'lucide-react';
-import { MediaType, MediaItem } from '../types/cinebook';
+import React, { useState, useRef, useEffect } from 'react';
+import { X, Star, Film, Tv, BookOpen, Search, Loader2, AlertTriangle, Users, Check } from 'lucide-react';
+import { MediaType, MediaItem, WatchedCompanion } from '../types/cinebook';
 import { useAuth } from '../context/AuthContext';
-import { createPost } from '../services/firestoreService';
+import { createPost, subscribeFollowers, subscribeFollowing } from '../services/firestoreService';
 import { searchAllMedia, POPULAR_BOOKS } from '../services/mediaService';
 
 interface CreatePostModalProps {
@@ -29,11 +29,42 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
   const [rating, setRating] = useState<number>(5);
   const [reviewText, setReviewText] = useState('');
   const [hasSpoiler, setHasSpoiler] = useState(false);
+  const [selectedCompanions, setSelectedCompanions] = useState<WatchedCompanion[]>([]);
+  const [myConnections, setMyConnections] = useState<WatchedCompanion[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<MediaItem[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
+
+  // Carrega seguidores/conexões para marcar quem assistiu junto
+  useEffect(() => {
+    if (!user) return;
+    const unsub1 = subscribeFollowers(user.uid, (followers) => {
+      const unsub2 = subscribeFollowing(user.uid, (following) => {
+        const map = new Map<string, WatchedCompanion>();
+        followers.forEach((f) => {
+          map.set(f.followerUid, {
+            uid: f.followerUid,
+            name: f.followerName || 'Seguidor',
+            photo: f.followerPhoto,
+          });
+        });
+        following.forEach((f) => {
+          if (!map.has(f.targetUid)) {
+            map.set(f.targetUid, {
+              uid: f.targetUid,
+              name: f.targetName || 'Seguindo',
+              photo: f.targetPhoto,
+            });
+          }
+        });
+        setMyConnections(Array.from(map.values()));
+      });
+      return () => unsub2();
+    });
+    return () => unsub1();
+  }, [user]);
 
   const debounceTimerRef = useRef<any>(null);
   const searchRequestIdRef = useRef<number>(0);
@@ -117,6 +148,7 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
         text: trimmed,
         hasSpoiler,
         createdAt: new Date().toISOString(),
+        watchedWith: selectedCompanions.length > 0 ? selectedCompanions : undefined,
       });
 
       onPostCreated();
@@ -376,6 +408,55 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
               <span className="switch-knob" />
             </div>
           </div>
+
+          {/* Assistiu com Seguidores (Opcional) */}
+          {myConnections.length > 0 && (
+            <div style={{ marginBottom: '18px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-secondary)', marginBottom: '8px' }}>
+                <Users size={16} color="var(--accent-pink)" />
+                <span>Assistiu com algum seguidor? (opcional)</span>
+              </div>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', maxHeight: '110px', overflowY: 'auto' }}>
+                {myConnections.map((conn) => {
+                  const isSelected = selectedCompanions.some((c) => c.uid === conn.uid);
+                  return (
+                    <button
+                      key={conn.uid}
+                      type="button"
+                      onClick={() => {
+                        if (isSelected) {
+                          setSelectedCompanions(selectedCompanions.filter((c) => c.uid !== conn.uid));
+                        } else {
+                          setSelectedCompanions([...selectedCompanions, conn]);
+                        }
+                      }}
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                        padding: '5px 11px',
+                        borderRadius: 'var(--radius-full)',
+                        fontSize: '0.78rem',
+                        fontWeight: 600,
+                        background: isSelected ? 'rgba(225, 29, 72, 0.12)' : 'var(--bg-subtle)',
+                        border: `1.5px solid ${isSelected ? 'var(--accent-pink)' : 'var(--border-color)'}`,
+                        color: isSelected ? 'var(--accent-pink)' : 'var(--text-primary)',
+                        transition: 'all 0.15s ease',
+                      }}
+                    >
+                      <img
+                        src={conn.photo || `https://api.dicebear.com/7.x/bottts/svg?seed=${conn.uid}`}
+                        alt={conn.name}
+                        style={{ width: '18px', height: '18px', borderRadius: 'var(--radius-full)', objectFit: 'cover' }}
+                      />
+                      <span>{conn.name.split(' ')[0]}</span>
+                      {isSelected && <Check size={12} />}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
 
           {/* Botão de Envio */}
           <button

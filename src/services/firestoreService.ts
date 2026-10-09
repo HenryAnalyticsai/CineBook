@@ -217,6 +217,17 @@ export function subscribeUserLists(
   );
 }
 
+export async function getUserListItems(uid: string): Promise<ListItem[]> {
+  const path = `users/${uid}/lists`;
+  try {
+    const snap = await getDocs(collection(db, 'users', uid, 'lists'));
+    return snap.docs.map((d) => d.data() as ListItem);
+  } catch (error) {
+    handleFirestoreError(error, OperationType.LIST, path);
+    return [];
+  }
+}
+
 export async function setUserListItem(uid: string, item: ListItem): Promise<void> {
   const path = `users/${uid}/lists/${item.itemKey}`;
   try {
@@ -227,6 +238,34 @@ export async function setUserListItem(uid: string, item: ListItem): Promise<void
   } catch (error) {
     handleFirestoreError(error, OperationType.WRITE, path);
   }
+}
+
+export async function logCoWatchedMedia(
+  userUid: string,
+  item: {
+    id: string;
+    type: 'movie' | 'series' | 'book';
+    title: string;
+    posterUrl: string;
+    year: string;
+    rating?: number;
+  },
+  companions: Array<{ uid: string; name: string; photo?: string }>
+): Promise<void> {
+  const itemKey = `${item.type}_${item.id}`;
+  const listItem: ListItem = {
+    itemKey,
+    itemId: item.id,
+    itemType: item.type,
+    title: item.title,
+    posterUrl: item.posterUrl,
+    year: item.year || '',
+    status: 'completed',
+    updatedAt: new Date().toISOString(),
+    watchedWith: companions,
+    userRating: item.rating,
+  };
+  await setUserListItem(userUid, listItem);
 }
 
 export async function removeUserListItem(uid: string, itemKey: string): Promise<void> {
@@ -369,6 +408,7 @@ export function subscribeFeedPosts(
           likeCount: Number(data.likeCount || 0),
           hasSpoiler: Boolean(data.hasSpoiler),
           createdAt: data.createdAt,
+          watchedWith: data.watchedWith || [],
         };
       });
       onUpdate(posts);
@@ -418,6 +458,9 @@ export async function createPost(post: Omit<Post, 'id' | 'likeCount'>): Promise<
 
     if (post.authorEmail) payload.authorEmail = post.authorEmail;
     if (isAdmPost) payload.isAdmin = true;
+    if (post.watchedWith && Array.isArray(post.watchedWith)) {
+      payload.watchedWith = post.watchedWith;
+    }
 
     await setDoc(postRef, payload);
     return postRef.id;

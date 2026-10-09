@@ -21,6 +21,12 @@ export interface MediaItem {
   voteAverage?: number;
 }
 
+export interface WatchedCompanion {
+  uid: string;
+  name: string;
+  photo?: string;
+}
+
 export interface Post {
   id: string;
   authorId: string;
@@ -39,6 +45,7 @@ export interface Post {
   hasSpoiler?: boolean;
   createdAt: string;
   isLikedByMe?: boolean;
+  watchedWith?: WatchedCompanion[];
 }
 
 export interface ListItem {
@@ -50,6 +57,8 @@ export interface ListItem {
   year: string;
   status: ListStatus;
   updatedAt: string;
+  watchedWith?: WatchedCompanion[];
+  userRating?: number;
 }
 
 export interface UserProfile {

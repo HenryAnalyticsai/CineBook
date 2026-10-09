@@ -178,6 +178,10 @@
         "createdAt": {
           "type": "string",
           "description": "Data de publicação"
+        },
+        "watchedWith": {
+          "type": "array",
+          "description": "Lista de seguidores que assistiram junto com o autor"
         }
       },
       "required": ["authorId", "authorName", "itemId", "itemType", "itemTitle", "rating", "text", "likeCount"]

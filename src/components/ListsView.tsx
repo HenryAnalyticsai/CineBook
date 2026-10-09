@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Bookmark, Film, Tv, BookOpen, Trash2, Edit3, ArrowRight } from 'lucide-react';
+import { Bookmark, Film, Tv, BookOpen, Trash2, Edit3, ArrowRight, Users, Sparkles } from 'lucide-react';
 import { ListItem, ListStatus, MediaType, LIST_STATUS_LABELS } from '../types/cinebook';
 import { useAuth } from '../context/AuthContext';
 import { subscribeUserLists, removeUserListItem, setUserListItem } from '../services/firestoreService';
@@ -9,6 +9,7 @@ interface ListsViewProps {
   onWriteReview: (item: any) => void;
   onGoToSearch: () => void;
   onOpenAuth: () => void;
+  onOpenWatchedWithFollowers?: () => void;
 }
 
 export const ListsView: React.FC<ListsViewProps> = ({
@@ -16,6 +17,7 @@ export const ListsView: React.FC<ListsViewProps> = ({
   onWriteReview,
   onGoToSearch,
   onOpenAuth,
+  onOpenWatchedWithFollowers,
 }) => {
   const { user } = useAuth();
   const [lists, setLists] = useState<ListItem[]>([]);
@@ -114,7 +116,44 @@ export const ListsView: React.FC<ListsViewProps> = ({
 
   return (
     <div>
-      {/* Abas das 3 Listas */}
+      {/* Banner de Destaque: Filmes com Seguidores */}
+      {onOpenWatchedWithFollowers && (
+        <div
+          className="cowatch-highlight-card"
+          onClick={onOpenWatchedWithFollowers}
+          role="button"
+          tabIndex={0}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <div className="cowatch-icon-circle">
+              <Users size={20} />
+            </div>
+            <div>
+              <div className="cowatch-title-text">
+                Filmes com Meus Seguidores
+              </div>
+              <div className="cowatch-sub-text">
+                Compare títulos que ambos assistiram e confira compatibilidade cinéfila
+              </div>
+            </div>
+          </div>
+          <button
+            type="button"
+            className="btn-primary"
+            style={{
+              padding: '7px 14px',
+              borderRadius: 'var(--radius-full)',
+              fontSize: '0.8rem',
+              fontWeight: 700,
+              whiteSpace: 'nowrap',
+            }}
+          >
+            Ver Filmes
+          </button>
+        </div>
+      )}
+
+      {/* Abas das Listas */}
       <div className="feed-tabs" style={{ marginBottom: '14px' }}>
         {(['want', 'in_progress', 'completed'] as ListStatus[]).map((status) => {
           const count = getStatusCount(status);
@@ -142,6 +181,19 @@ export const ListsView: React.FC<ListsViewProps> = ({
             </button>
           );
         })}
+
+        {onOpenWatchedWithFollowers && (
+          <button
+            type="button"
+            className="feed-tab-btn"
+            onClick={onOpenWatchedWithFollowers}
+            style={{ fontSize: '0.84rem', padding: '10px 8px', color: 'var(--accent-pink)', fontWeight: 700 }}
+            title="Ver filmes assistidos com seguidores"
+          >
+            <Users size={14} style={{ display: 'inline', marginRight: '4px' }} />
+            <span>Com Seguidores</span>
+          </button>
+        )}
       </div>
 
       {/* Subfiltros de tipo de mídia */}

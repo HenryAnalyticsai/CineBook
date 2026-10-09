@@ -81,7 +81,8 @@ service cloud.firestore {
           && data.likeCount is int
           && (!('hasSpoiler' in data) || data.hasSpoiler is bool)
           && (!('authorEmail' in data) || data.authorEmail is string)
-          && (!('isAdmin' in data) || data.isAdmin is bool);
+          && (!('isAdmin' in data) || data.isAdmin is bool)
+          && (!('watchedWith' in data) || data.watchedWith is list);
       }
 
       allow create: if isSignedIn()
@@ -94,7 +95,7 @@ service cloud.firestore {
           && isValidPost(incoming())
           && incoming().authorId == existing().authorId
           && incoming().likeCount == existing().likeCount
-          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['text', 'rating', 'hasSpoiler', 'updatedAt']))
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['text', 'rating', 'hasSpoiler', 'updatedAt', 'watchedWith']))
         ||
         // Qualquer usuário autenticado atualizando likeCount (+1 ou -1)
         (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['likeCount'])
