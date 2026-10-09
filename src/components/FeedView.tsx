@@ -453,19 +453,6 @@ export const FeedView: React.FC<FeedViewProps> = ({
         </div>
       )}
 
-      {/* Destaque Informativo do ADM Oficial */}
-      {networkFilter === 'admin' && (
-        <div className="admin-feed-notice">
-          <ShieldCheck size={20} color="#f59e0b" style={{ flexShrink: 0 }} />
-          <div>
-            <strong>Perfil Oficial do Administrador (ADM)</strong>
-            <p>
-              O criador e ADM <code>{ADMIN_EMAIL}</code> é seguido automaticamente por todos os membros do Cinebook para avisos, novidades e recomendações especiais.
-            </p>
-          </div>
-        </div>
-      )}
-
       {/* Lista de Resenhas */}
       {loadingPosts ? (
         <div style={{ textAlign: 'center', padding: '40px 20px', color: 'var(--text-muted)' }}>
